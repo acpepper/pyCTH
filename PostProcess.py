@@ -64,7 +64,7 @@ def getCOM3d(centers, Etots, KEs, IEs, masses):
         com[1] += centers[1, i]/numBestInds
         com[2] += centers[2, i]/numBestInds
 
-    return com, bestInd
+    return comGuess, bestInd
 
 
 

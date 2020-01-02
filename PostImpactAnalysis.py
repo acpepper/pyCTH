@@ -1,13 +1,15 @@
+import matplotlib as mpl
+mpl.use('Agg')
+
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import LogNorm
-import matplotlib as mpl
 import numpy as np
 import os
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
 
 fmtr = ScalarFormatter()
-fmtr.set_powerlimits((0, 1))
+fmtr.set_powerlimits((2, 2))
 
 import DataOutBinReader as dor
 import HcthReader as hcr
@@ -257,7 +259,7 @@ def plotIntMass(sortedRads, EarthRadInd, mSum, time, savedir):
     # Make sure save directory is valid
     if savedir[-1] != '/':
         savedir = savedir+'/'
-    plt.savefig("../plots/"+savedir+"intM_t{:.2f}.png".format(time/3600))
+    fig.savefig("../plots/"+savedir+"intM_t{:.2f}.png".format(time/3600))
     plt.close()
 
 
@@ -397,9 +399,63 @@ def plotAvels(dodata, i, diskInds, escpdInds, M_P, R_P, savedir):
     # Make sure save directory is valid
     if savedir[-1] != '/':
         savedir = savedir+'/'
-    plt.savefig("../plots/"+savedir+"angVel_t{:.2f}.png".format(dodata.times[i]/3600))
+    fig.savefig("../plots/"+savedir+"angVel_t{:.2f}.png".format(dodata.times[i]/3600))
     plt.close()
 
+    
+def plotOrbitRad(dodata, i, diskInds, escpdInds, M_P, R_P, savedir):
+    masses = np.asarray(dodata.M1[i]) + np.asarray(dodata.M2[i])
+    Etots = np.asarray(dodata.EM1[i]) + np.asarray(dodata.EM2[i])
+    KEs = np.asarray(dodata.KE[i])
+    IEs = np.asarray(dodata.IE[i])
+    com, comInds = pps.getCOM3d( np.asarray(dodata.centers[i]), 
+                                 Etots, 
+                                 KEs, 
+                                 IEs, 
+                                 masses )
+
+    # Get a slice though the xy-plane
+    p = [0, 0, 0]
+    n = [0, 0, 1]
+    slcInds = pps.slice2dFrom3d(np.asarray(dodata.centers[i]),
+                                np.asarray(dodata.widths[i]),
+                                p, n)
+    
+    rads = pps.getRads3d([np.asarray(dodata.centers[i][0])[slcInds],
+                          np.asarray(dodata.centers[i][1])[slcInds],
+                          np.asarray(dodata.centers[i][2])[slcInds]],
+                         com)
+    
+    # For each cell , solve for 'massless_a' (the orbital radius the cell would
+    # have after relaxation divided by the mass of the planet) using 
+    # sqrt(G * M_P * a_eq) = [specific angular momentum]
+    massless_a = np.zeros(slcInds.shape)
+    ams = np.zeros(slcInds.shape)
+    for j, k in enumerate(slcInds):
+        if masses[k] == 0:
+            continue
+        pos = [dodata.centers[i][0][k] - com[0], 
+               dodata.centers[i][1][k] - com[1], 
+               dodata.centers[i][2][k] - com[2]]
+        vel = [dodata.VX[i][k], dodata.VY[i][k], dodata.VZ[i][k]]
+        am = np.linalg.norm(np.cross(pos, vel)) # specific angular momentum
+        ams[j] = am
+        massless_a[j] = pow(am, 2)/G # [orbital radius] * [M_P]
+
+    # Make an angular velocity scatter plot and over-lay keplerian profile
+    avs = np.zeros(slcInds.shape)
+    colors = []
+    for j, k in enumerate(slcInds):
+        # calculate angular velocity
+        # avs[k] = G*G*M_P*M_P/pow(ams[j], 3)
+        avs[j] = ams[j]/pow(rads[j], 2)
+        if k in diskInds:
+            colors.append((0, 0, 1, 0.5))
+        elif k in escpdInds:
+            colors.append((1, 0, 0, 0.5))
+        else:
+            colors.append((0, 0, 0, 0.5))
+        
     fig, ax = plt.subplots()
     plt.scatter(np.asarray(rads)/1e5, np.asarray(massless_a)/M_P/1e5, s=1, c=colors, label=None)
     line = plt.axhline(y=R_P/1e5, ls='--', c='r', label="R_P")
@@ -413,5 +469,5 @@ def plotAvels(dodata, i, diskInds, escpdInds, M_P, R_P, savedir):
     ax.xaxis.set_major_formatter(fmtr)
     ax.yaxis.set_major_formatter(fmtr)
     plt.tight_layout()
-    plt.savefig("../plots/"+savedir+"orbRad_t{:.2f}.png".format(dodata.times[i]/3600))
+    fig.savefig("../plots/"+savedir+"orbRad_t{:.2f}.png".format(dodata.times[i]/3600))
     plt.close()
