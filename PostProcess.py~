@@ -47,7 +47,8 @@ def getCOM3d(centers, Etots, KEs, IEs, masses):
     GPE = np.asarray(Etots) - np.asarray(KEs) - np.asarray(IEs)
     GPE_ord = np.argsort(GPE)
     bestInd = []
-    numBestInds = 20
+    # 16 is an qualitative, empirical choice
+    numBestInds = 16
     for i in GPE_ord:
         distToCOM = np.linalg.norm([centers[0, i] - comGuess[0],
                                     centers[1, i] - comGuess[1], 
