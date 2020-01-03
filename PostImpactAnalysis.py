@@ -471,3 +471,18 @@ def plotOrbitRad(dodata, i, diskInds, escpdInds, M_P, R_P, savedir):
     plt.tight_layout()
     fig.savefig("../plots/"+savedir+"orbRad_t{:.2f}.png".format(dodata.times[i]/3600))
     plt.close()
+
+
+
+def plotEnergies(times, Etots, Eints, numMats):
+    # getcolors(numMats*2 - 1)
+    
+    # First plot the internal energies
+    EintsSum = np.zeros(np.asarray(times).shape)
+    for i in range(numMats):
+        newEintsSum = EintsSum + np.asarray(Eints[i])
+        plt.plot(times, newEintsSum)
+        plt.fill_between(times, newEintsSum, EintsSum)
+        EintsSum = newEintsSum
+
+    plt.show()

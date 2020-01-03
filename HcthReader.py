@@ -78,7 +78,7 @@ class HcthReader:
 
 
 
-    def getMasses():
+    def getMasses(self):
         massi = -1
         for i, name in enumerate(self.varNames):
             if name == 'MASS':
@@ -92,7 +92,7 @@ class HcthReader:
 
 
 
-    def getEtots():
+    def getEtots(self):
         etoti = -1        
         for i, name in enumerate(self.varNames):
             if name == 'ETOT':
@@ -106,7 +106,7 @@ class HcthReader:
 
     
 
-    def getEkens():
+    def getEkens(self):
         ekeni = -1
         for i, name in enumerate(self.varNames):
             if name == 'EK':
@@ -120,7 +120,7 @@ class HcthReader:
 
 
 
-    def getEints():
+    def getEints(self):
         einti = -1
         for i, name in enumerate(self.varNames):
             if name == 'EINT':
