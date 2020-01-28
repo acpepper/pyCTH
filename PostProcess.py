@@ -3,11 +3,32 @@ Created by Andrew Pepper 7/11/2019
 '''
 import numpy as np
 import scipy.optimize as opt
+import os
 import sys
 
 
 
 G = 6.67e-8 # CGS
+
+
+
+# Finds the number of dump cycles for a given file in 'runDir'
+# Also finds the total number of dumps recieved throughout the simulation
+def getCycles(fnameBase, runDir):
+    fLen = len(fnameBase)
+    dumpCycs = []
+    numDumps = 0
+    for file in os.listdir(runDir):
+        if file[:fLen] == fnameBase:
+            cycle = int(file[fLen:fLen+6])
+            if cycle in dumpCycs:
+                continue
+            else:
+                dumpCycs.append(cycle)
+                dumpCycs.sort()
+                numDumps += 1
+    
+    return dumpCycs, numDumps
 
 
 

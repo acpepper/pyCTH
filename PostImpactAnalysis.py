@@ -474,15 +474,21 @@ def plotOrbitRad(dodata, i, diskInds, escpdInds, M_P, R_P, savedir):
 
 
 
-def plotEnergies(times, Etots, Eints, numMats):
+def plotEnergies(dodata, numMats, savedir):
+    # get the fill colors
     # getcolors(numMats*2 - 1)
-    
-    # First plot the internal energies
-    EintsSum = np.zeros(np.asarray(times).shape)
+
+    # For each material, and at each timestep, find the internal energy
+    EintsSum = np.zeros(dodata.times.shape)
     for i in range(numMats):
-        newEintsSum = EintsSum + np.asarray(Eints[i])
+        matEints = getattr(dodata, "IE"+str(i+1))
+        print matEints
+        '''
+        newEintsSum = EintsSum + np.asarray(matEints)
         plt.plot(times, newEintsSum)
         plt.fill_between(times, newEintsSum, EintsSum)
         EintsSum = newEintsSum
+        '''
 
-    plt.show()
+    # fig.savefig("../plots/"+savedir+"energies.png")
+    # plt.show()

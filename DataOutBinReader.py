@@ -23,7 +23,7 @@ class DataOutBinReader:
     binDat = bnr.DataOutBinReader()
     base_fname = 'myBinary' # e.g. file: myBinary000127.7.dat
     binDat.readAll(base_fname, "/group/stewartgrp/acpepper/some_CTH_run_dir/")
-    print binDat.headerNames
+    print binDat.varNames
     print binDat.M1 # This module omits the '+' when specifying material vars
     print binDat.M2
 
@@ -34,14 +34,14 @@ class DataOutBinReader:
     binDat = DataOutBinReader()
     fname = 'myBinary000123.0.dat'
     binDat.readOne(fname) # Will only work with dumps by core 0
-    print binDat.headerNames
+    print binDat.varNames
     print binDat.T
 
     LIST OF ATTRIBUTES:
     -------------------
     numDims      : How many dimensions are needed to describe the data points
     numVars      : The number of database variable  sampled at each timestep
-    headerNames  : An array of the names of the database variables.
+    varNames     : An array of the names of the database variables.
                    NOTE: the variables are named to match CTH, with the only
                          difference being the omission of '+' symbols
     centers      : The positions of the data. A 3D list, the first argument 
@@ -73,7 +73,7 @@ class DataOutBinReader:
         # Data attributes
         self.numDims = 0
         self.numVars = 0
-        self.headerNames = []
+        self.varNames = []
         self.centers = []
         self.widths = []
         self.times = []
@@ -281,8 +281,8 @@ class DataOutBinReader:
                     if char != "+":
                         colName += char
 
-                if not(colName in self.headerNames):
-                    self.headerNames.append(colName)
+                if not(colName in self.varNames):
+                    self.varNames.append(colName)
 
                     # This adds a new attribute to the BinaryReader class
                     # DYNAMICALLY. The name of the attribute is stored in 
@@ -290,7 +290,7 @@ class DataOutBinReader:
                     # of lists
                     setattr(self, colName, [[]])
                 else:
-                    getattr(self, self.headerNames[j]).append([])
+                    getattr(self, self.varNames[j]).append([])
 
             # Now read the actual data
             while True:
@@ -318,7 +318,7 @@ class DataOutBinReader:
                     for j in range(self.numVars):
                         data = dataIn.read(8)
                         try:
-                            getattr(self, self.headerNames[j])[-1].append(struct.unpack('d', data[:8])[0])
+                            getattr(self, self.varNames[j])[-1].append(struct.unpack('d', data[:8])[0])
                         except struct.error:
                             break
                             
@@ -356,7 +356,7 @@ class DataOutBinReader:
                     for j in range(self.numVars):
                         data = dataIn.read(8)
                         try:
-                            getattr(self, self.headerNames[j])[cycInd].append(struct.unpack('d', data[:8])[0])
+                            getattr(self, self.varNames[j])[cycInd].append(struct.unpack('d', data[:8])[0])
                         except struct.error:
                             break
                             
