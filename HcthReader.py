@@ -33,27 +33,29 @@ class HcthReader:
 
     fname = "/group/stewartgrp/acpepper/some_CTH_run_dir/hcth")
     histDat = hcr.HcthReader(fname)
-    histDat.numTrcVars = 38
-    histDat.numMatVars = 20
-    histDat.numGlbVars = 20
     print histDat.getEtots()
 
     LIST OF ATTRIBUTES:
     -------------------
-    varNames : The names of ALL variable in the inputfile
-    times    : A 1D array with the times at which the hcth file was written to
-    tcube    : A 3D array for tracer particle data. The 0th dimension is the
-               number of variables associated with each tracer particle. The 
-               1st dimension is the number of tracers. Finally, the 2nd 
-               dimension is the number of timesteps where the hcth file has 
-               been written to (i.e. the time axis of the data).
-    mcube    : A 3D array for the material data. The 0th dimension is the 
-               number of material variables. The 1st dimension is the number 
-               of materials. The 2nd dimension is the number of timesteps where
-               the hcth file has been written to.
-    gcube    : A 2D array for the global data. The 0th dimension is the number
-               of global variables. The 1st dimension is the number of 
-               timesteps where the hcth file has been written to.
+    varNames   : The names of ALL variable in the inputfile
+    times      : A 1D array with the times that the hcth file was written to
+    tcube      : A 3D array for tracer particle data. The 0th dimension is the
+                 number of variables associated with each tracer particle. The 
+                 1st dimension is the number of tracers. Finally, the 2nd 
+                 dimension is the number of timesteps where the hcth file has 
+                 been written to (i.e. the time axis of the data).
+    mcube      : A 3D array for the material data. The 0th dimension is the 
+                 number of material variables. The 1st dimension is the number 
+                 of materials. The 2nd dimension is the number of timesteps 
+                 where the hcth file has been written to.
+    gcube      : A 2D array for the global data. The 0th dimension is the 
+                 number of global variables. The 1st dimension is the number of
+                 timesteps where the hcth file has been written to.
+    numTrcVars : Number of variables the user has told CTH to save for each 
+                 tracer
+    numMatVars : Number of variables the user has told CTH to save for each 
+                 material
+    numGlbVars : Number of global variables the user has told CTH to save
     '''
 
 
@@ -68,17 +70,14 @@ class HcthReader:
         self.gcube = self.gcube[:, 1:-1]
 
         # These are listed in the order in which they appear in 'varNames'
-        # NOTE: The user should set these before using any of the 'HcthReader'
-        #       methods
-        # NOTE: The values used here should be an upper bound
-        self.numTrcVars = 38
-        self.numMatVars = 20
-        self.numGlbVars = 20
+        self.numTrcVars = len(self.tcube)
+        self.numMatVars = len(self.mcube)
+        self.numGlbVars = len(self.gcube)
 
 
 
 
-    def getMasses():
+    def getMasses(self):
         massi = -1
         for i, name in enumerate(self.varNames):
             if name == 'MASS':
@@ -92,7 +91,7 @@ class HcthReader:
 
 
 
-    def getEtots():
+    def getEtots(self):
         etoti = -1        
         for i, name in enumerate(self.varNames):
             if name == 'ETOT':
@@ -106,7 +105,7 @@ class HcthReader:
 
     
 
-    def getEkens():
+    def getEkens(self):
         ekeni = -1
         for i, name in enumerate(self.varNames):
             if name == 'EK':
@@ -120,7 +119,7 @@ class HcthReader:
 
 
 
-    def getEints():
+    def getEints(self):
         einti = -1
         for i, name in enumerate(self.varNames):
             if name == 'EINT':
