@@ -2,6 +2,7 @@ import matplotlib as mpl
 mpl.use('Agg')
 
 from mpl_toolkits.mplot3d import Axes3D
+from scipy import interpolate
 from matplotlib.colors import LogNorm
 import numpy as np
 import os
@@ -13,7 +14,6 @@ fmtr.set_powerlimits((2, 2))
 
 import DataOutBinReader as dor
 import HcthReader as hcr
-import PostProcess as pps
 
 from matplotlib.colors import LinearSegmentedColormap
 
@@ -66,13 +66,13 @@ parula_map = LinearSegmentedColormap.from_list('parula', cm_data)
 G = 6.67e-8 # CGS
 
 
-
-def getLs(centers, vels, com, masses, escpdInds, diskInds):
-    c_of_escpd_mass = [np.asarray(centers[0])[escpdInds], 
-                       np.asarray(centers[1])[escpdInds], 
+'''
+def getFractionalLs(centers, vels, com, masses, escpdInds, diskInds):
+    c_of_escpd_mass = [np.asarray(centers[0])[escpdInds],
+                       np.asarray(centers[1])[escpdInds],
                        np.asarray(centers[2])[escpdInds]]
-    v_of_escpd_mass = [np.asarray(vels[0])[escpdInds], 
-                       np.asarray(vels[1])[escpdInds], 
+    v_of_escpd_mass = [np.asarray(vels[0])[escpdInds],
+                       np.asarray(vels[1])[escpdInds],
                        np.asarray(vels[2])[escpdInds]]
     escpdL = np.asarray( pps.getL3d(c_of_escpd_mass, 
                                     v_of_escpd_mass, 
@@ -119,20 +119,13 @@ def getLs(centers, vels, com, masses, escpdInds, diskInds):
     print "norm(totalL.sum()) = {}".format(L_tot)
 
     return L_esc, L_D, L_tot
+'''
 
 
-
-def findPlanet(dodata, i):
-    masses = np.asarray(dodata.M1[i]) + np.asarray(dodata.M2[i])
-    Etots = np.asarray(dodata.EM1[i]) + np.asarray(dodata.EM2[i])
-    KEs = np.asarray(dodata.KE[i])
-    IEs = np.asarray(dodata.IE[i])
-    com, comInds = pps.getCOM3d( np.asarray(dodata.centers[i]), 
-                                 Etots, 
-                                 KEs, 
-                                 IEs, 
-                                 masses )
-    rads = pps.getRads3d(np.asarray(dodata.centers[i]), com)
+def findPlanet(dobrDat, ti=0):
+    masses = np.asarray(dobrDat.M1[ti]) + np.asarray(dobrDat.M2[ti])
+    com, comInds = dobrDat.getCOM3d(ti)
+    rads = dobrDat.getRads3d(0, com=com)
     
     # Here we sort the indexes by distance from the center of mass
     # The arrays which are in this order are the following:
@@ -150,7 +143,7 @@ def findPlanet(dodata, i):
         mGrad.append( (mSum[-1] - mSum[-2])/(rads[j] - lastRad) )
         lastRad = rads[j]
 
-    # Make initial guess of planet radius
+    # Make an initial guess of planet radius
     # We use the radius containing half the integrated mass
     mGradMean = (mGrad[-1] - mGrad[0]) / (rads[radInds][-1] - rads[radInds][0])
     R_P_ind = radInds[0]
@@ -171,18 +164,20 @@ def findPlanet(dodata, i):
     for j in radInds:
         if masses[j] == 0:
             continue
-        pos = [dodata.centers[i][0][j] - com[0], 
-               dodata.centers[i][1][j] - com[1], 
-               dodata.centers[i][2][j] - com[2]]
-        vel = [dodata.VX[i][j], 
-               dodata.VY[i][j],
-               dodata.VZ[i][j]]
+        pos = [dobrDat.centers[ti][0][j] - com[0], 
+               dobrDat.centers[ti][1][j] - com[1], 
+               dobrDat.centers[ti][2][j] - com[2]]
+        vel = [dobrDat.VX[ti][j], 
+               dobrDat.VY[ti][j],
+               dobrDat.VZ[ti][j]]
         am = np.linalg.norm(np.cross(pos, vel)) # specific angular momentum
         ams[j] = am
         massless_a.append(pow(am, 2) / G) # [orbital radius] * [M_P]
         massless_a_inds.append(j)
 
-    # Iteratively calculate the planet mass and radius
+    # Iteratively calculate the planet mass and radius by comparing the
+    # relaxed radii of each cell to the planet's radius and excluding
+    # the cells which fall into the planet and/or are energetically unbound
     print "Begining planet mass and radius calculation"
     diskInds = []
     escpdInds = []
@@ -196,9 +191,9 @@ def findPlanet(dodata, i):
             # If the orbit of the cell is greater than the planets radius or 
             # it is energetically unbound then we exclude the cell from the 
             # next planetary mass calculation
-            if np.linalg.norm([dodata.VX[i][j],
-                               dodata.VY[i][j], 
-                               dodata.VZ[i][j]]) > pow(2*G*M_P/rads[j], 0.5):
+            if np.linalg.norm([dobrDat.VX[ti][j],
+                               dobrDat.VY[ti][j], 
+                               dobrDat.VZ[ti][j]]) > pow(2*G*M_P/rads[j], 0.5):
                 escpdInds.append(j)
             elif rads[j] > R_P and ma > R_P * M_P:
                 diskInds.append(j)
@@ -225,14 +220,9 @@ def findPlanet(dodata, i):
 
     # Calculate the predicted lunar mass via 
     # Eq 1 of Canup, Barr, and Crawford 2013
-    L_esc, L_D, L_tot = getLs(dodata.centers[i], 
-                              [dodata.VX[i], 
-                               dodata.VY[i], 
-                               dodata.VZ[i]], 
-                              com,
-                              masses, 
-                              escpdInds, 
-                              diskInds)
+    L_esc, L_D, L_tot = dobrDat.getFractionalLs(escpdInds, 
+                                                diskInds,
+                                                com=com)
     M_esc = masses[escpdInds].sum()
     M_D = masses[diskInds].sum()
     a_R = 2.9*R_P
@@ -243,7 +233,7 @@ def findPlanet(dodata, i):
 
 
 
-def plotIntMass(sortedRads, EarthRadInd, mSum, time, savedir):
+def plotIntMass(sortedRads, EarthRadInd, mSum, time, saveDir):
     # plot the planet radius and the integrated mass
     fig, ax = plt.subplots()
     plt.semilogy(np.asarray(sortedRads)/1e5, np.asarray(mSum[1:])*1e-3, c='k')
@@ -257,38 +247,30 @@ def plotIntMass(sortedRads, EarthRadInd, mSum, time, savedir):
     ax.xaxis.set_major_formatter(fmtr)
     plt.tight_layout()
     # Make sure save directory is valid
-    if savedir[-1] != '/':
-        savedir = savedir+'/'
-    fig.savefig("../plots/"+savedir+"intM_t{:.2f}.png".format(time/3600))
+    if saveDir[-1] != '/':
+        saveDir = saveDir+'/'
+    fig.savefig(saveDir+"intM_t{:.2f}.png".format(time/3600))
     plt.close()
 
 
-def plotSlice(dodata, i, diskInds, escpdInds, R_P, savedir):
-    masses = np.asarray(dodata.M1[i]) + np.asarray(dodata.M2[i])
-    Etots = np.asarray(dodata.EM1[i]) + np.asarray(dodata.EM2[i])
-    KEs = np.asarray(dodata.KE[i])
-    IEs = np.asarray(dodata.IE[i])
-    com, comInds = pps.getCOM3d( np.asarray(dodata.centers[i]), 
-                                 Etots, 
-                                 KEs, 
-                                 IEs, 
-                                 masses )
+def plotSlice(dobrDat, diskInds, escpdInds, R_P, saveDir, ti=0):
+    com, comInds = dobrDat.getCOM3d(ti)
 
     # Get a slice though the xy-plane
     p = [0, 0, 0]
     n = [0, 0, 1]
-    slcInds = pps.slice2dFrom3d(dodata.centers[i], dodata.widths[i], p, n)
+    slcInds = dobrDat.slice2dFrom3d(p, n, ti)
     
     # Make a pretty plot of the slice
     fig, ax = plt.subplots()
 
     # first triangulate the location of points in the slice
-    x = np.asarray(np.asarray(dodata.centers[i][0])[slcInds])
-    y = np.asarray(np.asarray(dodata.centers[i][1])[slcInds])
+    x = np.asarray(np.asarray(dobrDat.centers[ti][0])[slcInds])
+    y = np.asarray(np.asarray(dobrDat.centers[ti][1])[slcInds])
     triang = mpl.tri.Triangulation(x/1e5, y/1e5)
 
     # plot density
-    z1 = np.asarray(np.asarray(dodata.DENS[i])[slcInds])*1e3
+    z1 = np.asarray(np.asarray(dobrDat.DENS[ti])[slcInds])*1e3
     tpc = ax.tripcolor(triang, z1, shading='flat', vmin=1e-12, vmax=3e4, norm=LogNorm(), cmap=parula_map)
     clb = fig.colorbar(tpc)
     clb.set_label(r"Density (kg/m^3)")
@@ -309,48 +291,35 @@ def plotSlice(dodata, i, diskInds, escpdInds, R_P, savedir):
     # Plot the location of the center of mass and the radius of the planet
     circle = plt.Circle((com[0]/1e5, com[1]/1e5), R_P/1e5, color='r', fill=False)
     ax.add_artist(circle)
-    ax.scatter(np.asarray(dodata.centers[i][0])[comInds]/1e5, np.asarray(dodata.centers[i][1])[comInds]/1e5, s=11, marker='.', color='r')
+    ax.scatter(np.asarray(dobrDat.centers[ti][0])[comInds]/1e5, np.asarray(dobrDat.centers[ti][1])[comInds]/1e5, s=11, marker='.', color='r')
     ax.scatter([com[0]/1e5], [com[1]/1e5], s=11, marker='x', color='g')
 
     ax.set_aspect('equal')
     ax.set_xlim(-8e4, 8e4)
     ax.set_ylim(-8e4, 8e4)
-    ax.set_title("Equitorial plane at t = {:.2f} hrs".format(dodata.times[i]/3600))
+    ax.set_title("Equitorial plane at t = {:.2f} hrs".format(dobrDat.times[ti]/3600))
     ax.set_xlabel("X (km)")
     ax.set_ylabel("Y (km)")
     ax.xaxis.set_major_formatter(fmtr)
     ax.yaxis.set_major_formatter(fmtr)
     plt.tight_layout()
     # Make sure save directory is valid
-    if savedir[-1] != '/':
-        savedir = savedir+'/'
-    fig.savefig("../plots/"+savedir+"slcDens_t{:.2f}.png".format(dodata.times[i]/3600))
+    if saveDir[-1] != '/':
+        saveDir = saveDir+'/'
+    fig.savefig(saveDir+"slcDens_t{:.2f}.png".format(dobrDat.times[ti]/3600))
     plt.close()
 
 
 
-def plotAvels(dodata, i, diskInds, escpdInds, M_P, R_P, savedir):
-    masses = np.asarray(dodata.M1[i]) + np.asarray(dodata.M2[i])
-    Etots = np.asarray(dodata.EM1[i]) + np.asarray(dodata.EM2[i])
-    KEs = np.asarray(dodata.KE[i])
-    IEs = np.asarray(dodata.IE[i])
-    com, comInds = pps.getCOM3d( np.asarray(dodata.centers[i]), 
-                                 Etots, 
-                                 KEs, 
-                                 IEs, 
-                                 masses )
+def plotAvels(dobrDat, diskInds, escpdInds, M_P, R_P, saveDir, ti=0):
+    com, comInds = dobrDat.getCOM3d(ti)
 
     # Get a slice though the xy-plane
     p = [0, 0, 0]
     n = [0, 0, 1]
-    slcInds = pps.slice2dFrom3d(np.asarray(dodata.centers[i]),
-                                np.asarray(dodata.widths[i]),
-                                p, n)
-    
-    rads = pps.getRads3d([np.asarray(dodata.centers[i][0])[slcInds],
-                          np.asarray(dodata.centers[i][1])[slcInds],
-                          np.asarray(dodata.centers[i][2])[slcInds]],
-                         com)
+    slcInds = dobrDat.slice2dFrom3d(p, n, ti)
+
+    rads = dobrDat.getRads3d(ti, com=com)[slcInds]
     
     # For each cell , solve for 'massless_a' (the orbital radius the cell would
     # have after relaxation divided by the mass of the planet) using 
@@ -358,12 +327,12 @@ def plotAvels(dodata, i, diskInds, escpdInds, M_P, R_P, savedir):
     massless_a = np.zeros(slcInds.shape)
     ams = np.zeros(slcInds.shape)
     for j, k in enumerate(slcInds):
-        if masses[k] == 0:
+        if dobrDat.M1[ti][k] == 0 and dobrDat.M2[ti][k] == 0:
             continue
-        pos = [dodata.centers[i][0][k] - com[0], 
-               dodata.centers[i][1][k] - com[1], 
-               dodata.centers[i][2][k] - com[2]]
-        vel = [dodata.VX[i][k], dodata.VY[i][k], dodata.VZ[i][k]]
+        pos = [dobrDat.centers[ti][0][k] - com[0], 
+               dobrDat.centers[ti][1][k] - com[1], 
+               dobrDat.centers[ti][2][k] - com[2]]
+        vel = [dobrDat.VX[ti][k], dobrDat.VY[ti][k], dobrDat.VZ[ti][k]]
         am = np.linalg.norm(np.cross(pos, vel)) # specific angular momentum
         ams[j] = am
         massless_a[j] = pow(am, 2)/G # [orbital radius] * [M_P]
@@ -390,41 +359,29 @@ def plotAvels(dodata, i, diskInds, escpdInds, M_P, R_P, savedir):
     plt.ylim(0, 0.0008)
     plt.xlim(0, 1e5)
     plt.legend(loc="upper right")
-    plt.title("Angular velocities at t = {:.2f} hrs".format(dodata.times[i]/3600))
+    plt.title("Angular velocities at t = {:.2f} hrs".format(dobrDat.times[ti]/3600))
     plt.xlabel("Radial distance (km)")
     plt.ylabel("Angular velocity (rad/s)")
     ax.xaxis.set_major_formatter(fmtr)
     ax.yaxis.set_major_formatter(fmtr)
     plt.tight_layout()
     # Make sure save directory is valid
-    if savedir[-1] != '/':
-        savedir = savedir+'/'
-    fig.savefig("../plots/"+savedir+"angVel_t{:.2f}.png".format(dodata.times[i]/3600))
+    if saveDir[-1] != '/':
+        saveDir = saveDir+'/'
+    fig.savefig(saveDir+"angVel_t{:.2f}.png".format(dobrDat.times[ti]/3600))
     plt.close()
 
     
-def plotOrbitRad(dodata, i, diskInds, escpdInds, M_P, R_P, savedir):
-    masses = np.asarray(dodata.M1[i]) + np.asarray(dodata.M2[i])
-    Etots = np.asarray(dodata.EM1[i]) + np.asarray(dodata.EM2[i])
-    KEs = np.asarray(dodata.KE[i])
-    IEs = np.asarray(dodata.IE[i])
-    com, comInds = pps.getCOM3d( np.asarray(dodata.centers[i]), 
-                                 Etots, 
-                                 KEs, 
-                                 IEs, 
-                                 masses )
-
+def plotOrbitRad(dobrDat, diskInds, escpdInds, M_P, R_P, saveDir, ti=0):
+    masses = np.asarray(dobrDat.M1[ti]) + np.asarray(dobrDat.M2[ti])
+    com, comInds = dobrDat.getCOM3d(ti)
+    
     # Get a slice though the xy-plane
     p = [0, 0, 0]
     n = [0, 0, 1]
-    slcInds = pps.slice2dFrom3d(np.asarray(dodata.centers[i]),
-                                np.asarray(dodata.widths[i]),
-                                p, n)
+    slcInds = dobrDat.slice2dFrom3d(p, n, ti)
     
-    rads = pps.getRads3d([np.asarray(dodata.centers[i][0])[slcInds],
-                          np.asarray(dodata.centers[i][1])[slcInds],
-                          np.asarray(dodata.centers[i][2])[slcInds]],
-                         com)
+    rads = dobrDat.getRads3d(ti, com=com)[slcInds]
     
     # For each cell , solve for 'massless_a' (the orbital radius the cell would
     # have after relaxation divided by the mass of the planet) using 
@@ -434,10 +391,10 @@ def plotOrbitRad(dodata, i, diskInds, escpdInds, M_P, R_P, savedir):
     for j, k in enumerate(slcInds):
         if masses[k] == 0:
             continue
-        pos = [dodata.centers[i][0][k] - com[0], 
-               dodata.centers[i][1][k] - com[1], 
-               dodata.centers[i][2][k] - com[2]]
-        vel = [dodata.VX[i][k], dodata.VY[i][k], dodata.VZ[i][k]]
+        pos = [dobrDat.centers[ti][0][k] - com[0], 
+               dobrDat.centers[ti][1][k] - com[1], 
+               dobrDat.centers[ti][2][k] - com[2]]
+        vel = [dobrDat.VX[ti][k], dobrDat.VY[ti][k], dobrDat.VZ[ti][k]]
         am = np.linalg.norm(np.cross(pos, vel)) # specific angular momentum
         ams[j] = am
         massless_a[j] = pow(am, 2)/G # [orbital radius] * [M_P]
@@ -465,30 +422,74 @@ def plotOrbitRad(dodata, i, diskInds, escpdInds, M_P, R_P, savedir):
     plt.xlabel("Radial distance (km)")
     plt.ylabel(r"$a_{eq}$ (km)")
     plt.legend(loc="upper center")
-    plt.title("Relaxed orbital radii at t = {:.2f} hrs".format(dodata.times[i]/3600))
+    plt.title("Relaxed orbital radii at t = {:.2f} hrs".format(dobrDat.times[ti]/3600))
     ax.xaxis.set_major_formatter(fmtr)
     ax.yaxis.set_major_formatter(fmtr)
     plt.tight_layout()
-    fig.savefig("../plots/"+savedir+"orbRad_t{:.2f}.png".format(dodata.times[i]/3600))
+    fig.savefig(saveDir+"orbRad_t{:.2f}.png".format(dobrDat.times[ti]/3600))
     plt.close()
 
 
 
-def plotEnergies(dodata, numMats, savedir):
-    # get the fill colors
-    # getcolors(numMats*2 - 1)
+def plotEnergies(impactDir, impactName, dobrFname, saveDir):
+    # get energies from hcth file (histDat)
+    histDat = hcr.HcthReader(impactDir+impactName+'/hcth')
+    
+    Eken = histDat.mcube[0][0] + histDat.mcube[0][1]
+    Eint = histDat.mcube[-4][0] + histDat.mcube[-4][1]
+    Egra = []
+    
+    # Integrate the gravitational potential energy from the
+    # data-out-binary-reader file (dobrDat)
+    dobrDat = dor.DataOutBinReader()
+    cycs, numCycs = dobrDat.getCycles(dobrFname, impactDir+impactName)
+    print "Number of dumps to analyze: {}".format(len(cycs))
+    dobrTimes = []
+    for cyc in cycs:
+        dobrDat = dor.DataOutBinReader()
+        dobrDat.readSev(dobrFname, cyc, impactDir+impactName)
+        print "time of this data dump: {}".format(dobrDat.times[0])
 
-    # For each material, and at each timestep, find the internal energy
-    EintsSum = np.zeros(dodata.times.shape)
-    for i in range(numMats):
-        matEints = getattr(dodata, "IE"+str(i+1))
-        print matEints
-        '''
-        newEintsSum = EintsSum + np.asarray(matEints)
-        plt.plot(times, newEintsSum)
-        plt.fill_between(times, newEintsSum, EintsSum)
-        EintsSum = newEintsSum
-        '''
+        dobrTimes.append(dobrDat.times[0])
+        Egra.append( 1e-7*( np.asarray(dobrDat.SGU)
+                            *( np.asarray(dobrDat.M1)
+                               + np.asarray(dobrDat.M2) ) ).sum())
 
-    # fig.savefig("../plots/"+savedir+"energies.png")
-    # plt.show()
+    print dobrTimes
+        
+    Eken_spl = interpolate.splrep(histDat.times, Eken)
+    Eint_spl = interpolate.splrep(histDat.times, Eint)
+    Egra_spl = interpolate.splrep(dobrTimes, Egra)
+
+    finalT = min((histDat.times[-1], dobrTimes[-1]))
+    numTs = min((len(histDat.times), len(dobrTimes)))
+    newTs = np.linspace(0, finalT,
+                        numTs,
+                        endpoint=True)
+        
+    newEken = interpolate.splev(newTs, Eken_spl)
+    newEint = interpolate.splev(newTs, Eint_spl)
+    newEgra = interpolate.splev(newTs, Egra_spl)
+
+    normedZeroE = newEgra[-1]
+
+    colors = parula_map(np.linspace(0, 1, 5))
+
+    plt.plot(newTs, newEgra - normedZeroE, label='GPE', c='k')
+    plt.fill_between(newTs,
+                     newEgra - normedZeroE,
+                     newEgra + newEint - normedZeroE,
+                     color=colors[1])
+    plt.plot(newTs, newEgra + newEint - normedZeroE, label='IE', c='k')
+    plt.fill_between(newTs,
+                     newEgra + newEint - normedZeroE,
+                     newEgra + newEint + newEken - normedZeroE,
+                     color=colors[3])
+    plt.plot(newTs, newEgra + newEint + newEken - normedZeroE, label='KE', c='k')
+
+
+    
+    # make sure saveDir has '/' before saving
+    if saveDir[-1] != '/':
+        saveDir = saveDir+'/'
+    plt.savefig(saveDir+"energyBudget.png")

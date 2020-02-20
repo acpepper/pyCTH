@@ -1,8 +1,10 @@
 '''
 Created by Andrew Pepper, 7/11/2019
 '''
+import numpy as np
 import os
 import struct
+import sys
 
 
 
@@ -77,6 +79,37 @@ class DataOutBinReader:
         self.centers = []
         self.widths = []
         self.times = []
+
+
+    # Finds the number of dump cycles for a given file in 'runDir'
+    # Also finds the total number of dumps recieved throughout the simulation
+    #
+    # This function assumes the user follows the default CTH naming convention:
+    # [base name]000000.dat
+    # [base name]001762.dat
+    # ...
+    # Or 
+    # [base name]000000.0.dat
+    # [base name]000000.1.dat
+    # ...
+    # [base name]000082.0.dat
+    # [base name]000082.1.dat
+    # ...
+    def getCycles(self, fnameBase, runDir):
+        fLen = len(fnameBase)
+        dumpCycs = []
+        numDumps = 0
+        for file in os.listdir(runDir):
+            if file[:fLen] == fnameBase:
+                cycle = int(file[fLen:fLen+6])
+                if cycle in dumpCycs:
+                    continue
+                else:
+                    dumpCycs.append(cycle)
+                    dumpCycs.sort()
+                    numDumps += 1
+    
+        return dumpCycs, numDumps
 
 
 
@@ -362,3 +395,180 @@ class DataOutBinReader:
                             
                 else:
                     break
+
+
+
+    # returns an array of indexes which lie in the 2d planar subset of the 
+    # simulation domain. 
+    # 'p' -> a point in the plane
+    # 'n' -> the normal of the plane
+    # NOTE: This function works best when 'p' lies on the boundary of CTH cells
+    def slice2dFrom3d(self, p, n, ti=0):
+        n = n/np.linalg.norm(n)
+        inds = []
+        for i, (x, y, z, wx, wy, wz) in enumerate(zip(self.centers[ti][0], self.centers[ti][1], self.centers[ti][2], self.widths[ti][0], self.widths[ti][1], self.widths[ti][2])):
+            relPos = np.asarray([x - p[0], y - p[1], z - p[2]])
+            cornerDist = [-np.inner([ wx,  wy,  wz], n),
+                          -np.inner([ wx,  wy, -wz], n),
+                          -np.inner([ wx, -wy,  wz], n),
+                          -np.inner([ wx, -wy, -wz], n),
+                          -np.inner([-wx,  wy,  wz], n),
+                          -np.inner([-wx,  wy, -wz], n), 
+                          -np.inner([-wx, -wy,  wz], n),
+                          -np.inner([-wx, -wy, -wz], n)]
+            for cd in cornerDist:
+                if abs( abs(np.inner(relPos, n))/cd - 1 ) < 1024*sys.float_info.epsilon:
+                    inds.append(i)
+                    break
+        
+        return np.asarray(inds)
+
+
+
+    def getGU(self):
+        reqAttrs = ['SGU', 'M1', 'M2']
+        for attr in reqAttrs:
+            if not hasattr(self, attr):
+                raise AttributeError("DataOutBinReader class has no attribute: {}".format(attr))
+
+        return ( np.asarray(self.SGU)*( np.asarray(self.M1)
+                                        + np.asarray(self.M2) ) )[0]
+
+
+
+    def getCOM3d_mass(self, ti=0):
+        reqAttrs = ['M1', 'M2']
+        for attr in reqAttrs:
+            if not hasattr(self, attr):
+                raise AttributeError("DataOutBinReader class has no attribute: {}".format(attr))
+        
+        com = [0, 0, 0]
+        masses = np.asarray(self.M1[ti]) + np.asarray(self.M2[ti])
+        for x, y, z, m in zip(np.asarray(self.centers[ti][0]), np.asarray(self.centers[ti][1]), np.asarray(self.centers[ti][2]), np.asarray(masses)):
+            com[0] += m * x
+            com[1] += m * y
+            com[2] += m * z
+
+        M = 0.0
+        for m in masses:
+            M += m
+
+        com[0] /= M
+        com[1] /= M
+        com[2] /= M
+
+        return com
+
+
+
+    def getCOM3d(self, ti=0):
+        comGuess = self.getCOM3d_mass()
+        GU = self.getGU()
+        GU_ord = np.argsort(GU)
+        bestInd = []
+        # 16 is an qualitative, empirical choice
+        numBestInds = 16
+        for i in GU_ord:
+            distToCOM = np.linalg.norm([self.centers[ti][0][i] - comGuess[0],
+                                        self.centers[ti][1][i] - comGuess[1], 
+                                        self.centers[ti][2][i] - comGuess[2]])
+            if  distToCOM < 7e8: # ~R_earth
+                bestInd.append(i)
+                if len(bestInd) >= numBestInds:
+                    break
+
+        com = [0, 0, 0]
+        for i in bestInd:
+            com[0] += self.centers[ti][0][i]/numBestInds
+            com[1] += self.centers[ti][1][i]/numBestInds
+            com[2] += self.centers[ti][2][i]/numBestInds
+
+        return com, bestInd
+
+
+
+    def getRads3d(self, ti=0, **kwargs):
+        try:
+            com = kwargs["com"]
+        except KeyError:
+            com = self.getCOM3d()[0]
+
+        rads = []
+
+        for x, y, z in zip(np.asarray(self.centers[ti][0]), np.asarray(self.centers[ti][1]), np.asarray(self.centers[ti][2])):
+            rads.append(np.linalg.norm([x - com[0], y - com[1], z - com[2]]))
+
+        return np.asarray(rads)
+
+
+
+    def getL3d(self, ti=0, **kwargs):
+        try:
+            com = kwargs["com"]
+        except KeyError:
+            com = self.getCOM3d()[0]
+        try:
+            inds = kwargs["inds"]
+        except KeyError:
+            inds = np.arange(len(self.centers[ti][0]))
+
+        reqAttrs = ['M1', 'M2', 'VX', 'VY', 'VZ']
+        for attr in reqAttrs:
+            if not hasattr(self, attr):
+                raise AttributeError("DataOutBinReader class has no attribute: {}".format(attr))
+        
+        masses = np.asarray(self.M1[ti])[inds] + np.asarray(self.M2[ti])[inds]
+        Ls = []
+        for x, y, z, vx, vy, vz, m in zip(np.asarray(self.centers)[ti,0,inds],
+                                          np.asarray(self.centers)[ti,1,inds],
+                                          np.asarray(self.centers)[ti,2,inds],
+                                          np.asarray(self.VX)[ti, inds],
+                                          np.asarray(self.VY)[ti, inds],
+                                          np.asarray(self.VZ)[ti, inds],
+                                          masses):
+            r = [x - com[0], y - com[1], z - com[2]]
+            Ls.append(np.cross(r, [vx, vy, vz])*m)
+    
+        return Ls
+
+
+
+    def getFractionalLs(self, escpdInds, diskInds, ti=0, **kwargs):
+        try:
+            com = kwargs["com"]
+        except KeyError:
+            com = self.getCOM3d()[0]
+
+        # First examine the escaped mass
+        escpdL = np.asarray( self.getL3d(ti, inds=escpdInds, com=com) )
+        if len(escpdL) > 0:
+            L_esc = np.linalg.norm([escpdL[:, 0].sum(), 
+                                    escpdL[:, 1].sum(), 
+                                    escpdL[:, 2].sum()])
+            print "escpdL.z.sum() = {}".format((escpdL[:, 2]).sum())
+            print "norm(escpdL.sum()) = {}".format(L_esc)
+        else:
+            L_esc = 0
+
+        # Next the disk mass
+        diskL = np.asarray( self.getL3d(ti, inds=diskInds, com=com) )
+        if len(diskL) > 0:
+            L_D = np.linalg.norm( [diskL[:, 0].sum(), 
+                                   diskL[:, 1].sum(), 
+                                   diskL[:, 2].sum()] )
+            print "diskL.z.sum() = {}".format(diskL[:, 2].sum())
+            print "norm(diskL.sum()) = {}".format(L_D)
+        else:
+            L_D = 0
+
+        # Finally, the total mass
+        # (it is assumed this is non-empty)
+        totalL = np.asarray( self.getL3d(ti) )
+        L_tot = np.linalg.norm( [totalL[:, 0].sum(), 
+                                 totalL[:, 1].sum(), 
+                                 totalL[:, 2].sum()] )
+        print "totalL.z.sum() = {}".format(totalL[:, 2].sum())
+        print "norm(totalL.sum()) = {}".format(L_tot)
+        
+        return L_esc, L_D, L_tot
+
