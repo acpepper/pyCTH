@@ -6,8 +6,10 @@ from scipy import interpolate
 from matplotlib.colors import LogNorm
 import numpy as np
 import os
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
+import sys
 
 fmtr = ScalarFormatter()
 fmtr.set_powerlimits((2, 2))
@@ -16,6 +18,10 @@ import DataOutBinReader as dor
 import HcthReader as hcr
 
 from matplotlib.colors import LinearSegmentedColormap
+
+
+
+G = 6.674e-8 # CGS
 
 cm_data = [[0.2081, 0.1663, 0.5292], [0.2116238095, 0.1897809524, 0.5776761905], 
  [0.212252381, 0.2137714286, 0.6269714286], [0.2081, 0.2386, 0.6770857143], 
@@ -63,67 +69,8 @@ parula_map = LinearSegmentedColormap.from_list('parula', cm_data)
 
 
 
-G = 6.67e-8 # CGS
-
-
 '''
-def getFractionalLs(centers, vels, com, masses, escpdInds, diskInds):
-    c_of_escpd_mass = [np.asarray(centers[0])[escpdInds],
-                       np.asarray(centers[1])[escpdInds],
-                       np.asarray(centers[2])[escpdInds]]
-    v_of_escpd_mass = [np.asarray(vels[0])[escpdInds],
-                       np.asarray(vels[1])[escpdInds],
-                       np.asarray(vels[2])[escpdInds]]
-    escpdL = np.asarray( pps.getL3d(c_of_escpd_mass, 
-                                    v_of_escpd_mass, 
-                                    np.asarray(masses)[escpdInds],
-                                    com) )
-    if len(escpdL) > 0:
-        L_esc = np.linalg.norm([escpdL[:, 0].sum(), 
-                                escpdL[:, 1].sum(), 
-                                escpdL[:, 2].sum()])
-        print "escpdL.z.sum() = {}".format((escpdL[:, 2]).sum())
-        print "norm(escpdL.sum()) = {}".format(L_esc)
-    else:
-        L_esc = 0
-
-    c_of_disk_mass = [np.asarray(centers[0])[diskInds], 
-                      np.asarray(centers[1])[diskInds], 
-                      np.asarray(centers[2])[diskInds]]
-    v_of_disk_mass = [np.asarray(vels[0])[diskInds], 
-                      np.asarray(vels[1])[diskInds], 
-                      np.asarray(vels[2])[diskInds]]
-    diskL = np.asarray( pps.getL3d(c_of_disk_mass, 
-                                   v_of_disk_mass, 
-                                   np.asarray(masses)[diskInds],
-                                   com) )
-    if len(diskL) > 0:
-        L_D = np.linalg.norm( [diskL[:, 0].sum(), 
-                               diskL[:, 1].sum(), 
-                               diskL[:, 2].sum()] )
-        print "diskL.z.sum() = {}".format(diskL[:, 2].sum())
-        print "norm(diskL.sum()) = {}".format(L_D)
-    else:
-        L_D = 0
-    
-    totalL = np.asarray( pps.getL3d(centers, 
-                                    [vels[0], 
-                                     vels[1],
-                                     vels[2]],
-                                    np.asarray(masses),
-                                    com) )
-    L_tot = np.linalg.norm( [totalL[:, 0].sum(), 
-                             totalL[:, 1].sum(), 
-                             totalL[:, 2].sum()] )
-    print "totalL.z.sum() = {}".format(totalL[:, 2].sum())
-    print "norm(totalL.sum()) = {}".format(L_tot)
-
-    return L_esc, L_D, L_tot
-'''
-
-
 def findPlanet(dobrDat, ti=0):
-    masses = np.asarray(dobrDat.M1[ti]) + np.asarray(dobrDat.M2[ti])
     com, comInds = dobrDat.getCOM3d(ti)
     rads = dobrDat.getRads3d(0, com=com)
     
@@ -138,12 +85,13 @@ def findPlanet(dobrDat, ti=0):
     mSum = [0]
     mGrad = []
     lastRad = 0
+    masses = np.asarray(dobrDat.M1[ti]) + np.asarray(dobrDat.M2[ti])
     for j in radInds:
         mSum.append( mSum[-1] + masses[j] )        
         mGrad.append( (mSum[-1] - mSum[-2])/(rads[j] - lastRad) )
         lastRad = rads[j]
 
-    # Make an initial guess of planet radius
+    # Make an initial guess of planet radius.
     # We use the radius containing half the integrated mass
     mGradMean = (mGrad[-1] - mGrad[0]) / (rads[radInds][-1] - rads[radInds][0])
     R_P_ind = radInds[0]
@@ -153,7 +101,7 @@ def findPlanet(dobrDat, ti=0):
             R_P_ind = j
             break
 
-    # For each cell , solve for 'massless_a' (the orbital radius the cell would
+    # For each cell, solve for 'massless_a' (the orbital radius the cell would
     # have after relaxation divided by the mass of the planet) using 
     # sqrt(G * M_P * a_eq) = [specific angular momentum]
     # NOTE: we onle store the cell indexes and 'massless_a' for those cells 
@@ -172,7 +120,7 @@ def findPlanet(dobrDat, ti=0):
                dobrDat.VZ[ti][j]]
         am = np.linalg.norm(np.cross(pos, vel)) # specific angular momentum
         ams[j] = am
-        massless_a.append(pow(am, 2) / G) # [orbital radius] * [M_P]
+        massless_a.append(pow(am, 2) / G) # [orbital radius]*M_P
         massless_a_inds.append(j)
 
     # Iteratively calculate the planet mass and radius by comparing the
@@ -180,12 +128,12 @@ def findPlanet(dobrDat, ti=0):
     # the cells which fall into the planet and/or are energetically unbound
     print "Begining planet mass and radius calculation"
     diskInds = []
-    escpdInds = []
+    escpInds = []
     M_P = mSum[R_P_ind + 1]
     R_P = rads[radInds][R_P_ind]
     while True:
         diskInds = []
-        escpdInds = []
+        escpInds = []
         nextM_P = 0
         for j, ma in zip(massless_a_inds, massless_a):
             # If the orbit of the cell is greater than the planets radius or 
@@ -194,7 +142,7 @@ def findPlanet(dobrDat, ti=0):
             if np.linalg.norm([dobrDat.VX[ti][j],
                                dobrDat.VY[ti][j], 
                                dobrDat.VZ[ti][j]]) > pow(2*G*M_P/rads[j], 0.5):
-                escpdInds.append(j)
+                escpInds.append(j)
             elif rads[j] > R_P and ma > R_P * M_P:
                 diskInds.append(j)
             else:
@@ -220,17 +168,17 @@ def findPlanet(dobrDat, ti=0):
 
     # Calculate the predicted lunar mass via 
     # Eq 1 of Canup, Barr, and Crawford 2013
-    L_esc, L_D, L_tot = dobrDat.getFractionalLs(escpdInds, 
+    L_esc, L_D, L_tot = dobrDat.getFractionalLs(escpInds, 
                                                 diskInds,
                                                 com=com)
-    M_esc = masses[escpdInds].sum()
+    M_esc = masses[escpInds].sum()
     M_D = masses[diskInds].sum()
     a_R = 2.9*R_P
     M_L = (1.9*(L_D/M_D/pow(G*M_P*a_R, 0.5)) - 1.1 - 1.9*(M_esc/M_D))*M_D
     print "M_L ~ {}".format(M_L)
 
-    return M_P, R_P, diskInds, escpdInds
-
+    return M_P, R_P, diskInds, escpInds
+'''
 
 
 def plotIntMass(sortedRads, EarthRadInd, mSum, time, saveDir):
@@ -253,78 +201,321 @@ def plotIntMass(sortedRads, EarthRadInd, mSum, time, saveDir):
     plt.close()
 
 
-def plotSlice(dobrDat, diskInds, escpdInds, R_P, saveDir, ti=0):
-    com, comInds = dobrDat.getCOM3d(ti)
-
+def plotSlice(dobrDat, diskInds, escpInds, R_P, saveDir, scal=("DENS", 1e3), ti=0, **kwargs):
+    # get the center of mass
+    try:
+        com = kwargs["com"]
+    except KeyError:
+        com = dobrDat.getCOM3d(ti)[0]
     # Get a slice though the xy-plane
-    p = [0, 0, 0]
-    n = [0, 0, 1]
-    slcInds = dobrDat.slice2dFrom3d(p, n, ti)
+    try:
+        slcInds = kwargs["slcInds"]
+    except KeyError:
+        p = [0, 0, 0]
+        n = [0, 0, 1]
+        slcInds = dobrDat.slice2dFrom3d(p, n, ti)
     
     # Make a pretty plot of the slice
     fig, ax = plt.subplots()
 
     # first triangulate the location of points in the slice
-    x = np.asarray(np.asarray(dobrDat.centers[ti][0])[slcInds])
-    y = np.asarray(np.asarray(dobrDat.centers[ti][1])[slcInds])
+    x = np.asarray(dobrDat.centers[ti][0])[slcInds]
+    y = np.asarray(dobrDat.centers[ti][1])[slcInds]
     triang = mpl.tri.Triangulation(x/1e5, y/1e5)
 
-    # plot density
-    z1 = np.asarray(np.asarray(dobrDat.DENS[ti])[slcInds])*1e3
-    tpc = ax.tripcolor(triang, z1, shading='flat', vmin=1e-12, vmax=3e4, norm=LogNorm(), cmap=parula_map)
-    clb = fig.colorbar(tpc)
-    clb.set_label(r"Density (kg/m^3)")
+    # plot scalar field
+    z1 = np.asarray(getattr(dobrDat, scal[0])[ti])[slcInds]*scal[1]
+    if scal[0] == "DENS":
+        tpc = ax.tripcolor(triang, z1,
+                           shading='flat',
+                           vmin=1e1,
+                           vmax=1e4,
+                           norm=LogNorm(),
+                           cmap=parula_map)
+        clb = fig.colorbar(tpc)
+        clb.set_label(r"Density (kg/m^3)")
+    elif scal[0] == "P":
+        tpc = ax.tripcolor(triang, z1,
+                           shading='flat',
+                           vmin=1e8,
+                           vmax=2e11,
+                           norm=LogNorm(),
+                           cmap=parula_map)
+        clb = fig.colorbar(tpc)
+        clb.set_label(r"Pressure (kg/m/s^2)")
+    elif scal[0] == "T":
+        tpc = ax.tripcolor(triang, z1,
+                           shading='flat',
+                           vmin=1e2,
+                           vmax=1e4,
+                           norm=LogNorm(),
+                           cmap=parula_map)
+        clb = fig.colorbar(tpc)
+        clb.set_label(r"Temperature (K)")
 
-    # This array distinguishes between escaped cells, cells in the disk, and 
-    # cells in the planet
+    # This array identifies disk cells
     z2 = np.zeros(z1.shape)
     for k, j in enumerate(slcInds):
         if j in diskInds:
-            z2[k] = -2
-        elif j in escpdInds:
             z2[k] = -1
-
     # Horizontal hatches -> disk material
+    hcf1 = ax.tricontourf(triang, z2, 0, hatches=['--'], alpha=0.0)
+    
+    # This array identifies escaped cells
+    z3 = np.zeros(z1.shape)
+    for k, j in enumerate(slcInds):
+        if j in escpInds:
+            z3[k] = -1
     # Vertical hatches -> escaped material
-    tcf = ax.tricontourf(triang, z2, 1, hatches=['-----', '|||'], alpha=0.0)
-
+    hcf2 = ax.tricontourf(triang, z3, 0, hatches=['||'], alpha=0.0)
+        
     # Plot the location of the center of mass and the radius of the planet
-    circle = plt.Circle((com[0]/1e5, com[1]/1e5), R_P/1e5, color='r', fill=False)
-    ax.add_artist(circle)
-    ax.scatter(np.asarray(dobrDat.centers[ti][0])[comInds]/1e5, np.asarray(dobrDat.centers[ti][1])[comInds]/1e5, s=11, marker='.', color='r')
-    ax.scatter([com[0]/1e5], [com[1]/1e5], s=11, marker='x', color='g')
+    circ = plt.Circle((com[0]/1e5, com[1]/1e5), R_P/1e5, color='g', fill=False)
+    ax.add_artist(circ)
+    cntr = ax.scatter([com[0]/1e5], [com[1]/1e5], s=11, marker='x', color='g')
 
     ax.set_aspect('equal')
-    ax.set_xlim(-8e4, 8e4)
-    ax.set_ylim(-8e4, 8e4)
-    ax.set_title("Equitorial plane at t = {:.2f} hrs".format(dobrDat.times[ti]/3600))
+    ax.set_xlim(com[0]/1e5 - 8e4, com[1]/1e5 + 8e4)
+    ax.set_ylim(com[0]/1e5 - 8e4, com[1]/1e5 + 8e4)
+    ax.set_title("Equatorial plane at t = {:.2f} hrs".format(dobrDat.times[ti]/3600))
     ax.set_xlabel("X (km)")
     ax.set_ylabel("Y (km)")
+    ax.xaxis.set_major_formatter(fmtr)
+    ax.yaxis.set_major_formatter(fmtr)
+
+    # make proxy artists for legend entries
+    diskLgnd = mpatches.FancyBboxPatch((0, 0), 1, 1, fc='none', hatch='--')
+    escpLgnd = mpatches.FancyBboxPatch((0, 0), 1, 1, fc='none', hatch='||')
+    circLgnd = plt.scatter([], [], facecolors='none', edgecolors='g')
+    plt.legend((diskLgnd, escpLgnd, cntr, circLgnd), ("Disk material", "Escaped material", "Center of Mass", "Radius"), loc="upper right")    
+    
+    plt.tight_layout()
+
+    # Make sure save directory is valid
+    if saveDir[-1] != '/':
+        saveDir = saveDir+'/'
+    fig.savefig(saveDir+"slc{}_t{:.2f}.png".format(scal[0], dobrDat.times[ti]/3600))
+    plt.close()
+
+
+
+def plotSliceMixing(dobrDat, saveDir, ti=0, **kwargs):
+    # get the center of mass
+    try:
+        com = kwargs["com"]
+    except KeyError:
+        com = dobrDat.getCOM3d(ti)[0]
+    # Get a slice though the xy-plane
+    try:
+        slcInds = kwargs["slcInds"]
+    except KeyError:
+        p = [0, 0, 0]
+        n = [0, 0, 1]
+        slcInds = dobrDat.slice2dFrom3d(p, n, ti)
+    
+    fig, axs = plt.subplots(1, 2, sharey=True)
+
+    # first triangulate the location of cells in the slice
+    x = np.asarray(dobrDat.centers[ti][0])[slcInds]
+    y = np.asarray(dobrDat.centers[ti][1])[slcInds]
+    triang = mpl.tri.Triangulation(x/1e5, y/1e5)
+    
+    # for each point in the slice, find the mixing of material 1
+    z1 = np.asarray(dobrDat.M1ID[ti])[slcInds]
+    tpc1 = axs[0].tripcolor(triang, z1, shading='flat', vmin=0, vmax=1, cmap=parula_map)
+
+    axs[0].set_aspect('equal')
+    axs[0].set_xlim(com[0]/1e5 - 8e4, com[1]/1e5 + 8e4)
+    axs[0].set_ylim(com[0]/1e5 - 8e4, com[1]/1e5 + 8e4)
+    axs[0].set_xlabel("X (km)")
+    axs[0].set_ylabel("Y (km)")
+    axs[0].xaxis.set_major_formatter(fmtr)
+    axs[0].yaxis.set_major_formatter(fmtr)
+    axs[0].set_title("Mantle")
+
+    # for each point in the slice, find the mixing of material 2    
+    z2 = np.asarray(dobrDat.M2ID[ti])[slcInds]
+    tpc2 = axs[1].tripcolor(triang, z2, shading='flat', vmin=0, vmax=1, cmap=parula_map)
+    
+    # The color bar is the same for both materials, the choice to reference it
+    # to 'tpc2' is arbitrary
+    clb = fig.colorbar(tpc2,
+                       ax=axs,
+                       orientation="horizontal",
+                       fraction=0.1,
+                       anchor=(0.0, 3.0),
+                       panchor=(0.0, 1.0),
+                       label="Percentage of Impactor Material")
+
+    axs[1].set_aspect('equal')
+    axs[1].set_xlim(com[0]/1e5 - 8e4, com[1]/1e5 + 8e4)
+    axs[1].set_ylim(com[0]/1e5 - 8e4, com[1]/1e5 + 8e4)
+    axs[1].set_xlabel("X (km)")
+    axs[1].xaxis.set_major_formatter(fmtr)
+    axs[1].yaxis.set_major_formatter(fmtr)
+    axs[1].set_title("Core")
+
+    # Make sure save directory is valid
+    if saveDir[-1] != '/':
+        saveDir = saveDir+'/'
+    fig.savefig(saveDir+"slcMixing_t{:.2f}.png".format(dobrDat.times[ti]/3600),
+                bbox_inches='tight')
+    plt.close()
+    
+
+
+def plotProfMixing(dobrDat, saveDir, ti=0, **kwargs):
+    # get the center of mass
+    try:
+        com = kwargs["com"]
+    except KeyError:
+        com = dobrDat.getCOM3d(ti)[0]
+        
+    # arange the cells by density
+    densInds = np.asarray(dobrDat.DENS[ti]).argsort()
+    masses = np.asarray(dobrDat.M1[ti]) + np.asarray(dobrDat.M2[ti])
+    maxMass = max(masses)
+    
+    m1MixInds = []
+    m1Sizes = []
+    m1Colors = []
+    m2MixInds = []
+    m2Sizes = []
+    m2Colors = []
+    for i in densInds:
+        # If cell is all core don't append to 'm1MixInds'
+        if dobrDat.VOLM1[ti][i] < 2048*sys.float_info.epsilon:
+            m2MixInds.append(i)
+            m2Sizes.append(200*dobrDat.M2[ti][i]/maxMass)
+            m2Colors.append(dobrDat.TM2[ti][i]/8.6173e-5)
+            continue
+        # If cell is all mantle don't append to 'm2MixInds'
+        if dobrDat.VOLM2[ti][i] < 2048*sys.float_info.epsilon:
+            m1MixInds.append(i)
+            m1Sizes.append(200*dobrDat.M1[ti][i]/maxMass)
+            m1Colors.append(dobrDat.TM1[ti][i]/8.6173e-5)
+            continue
+        m1MixInds.append(i)
+        m1Sizes.append(200*dobrDat.M1[ti][i]/maxMass)
+        m1Colors.append(dobrDat.TM1[ti][i]/8.6173e-5)
+        m2MixInds.append(i)
+        m2Sizes.append(200*dobrDat.M2[ti][i]/maxMass)
+        m2Colors.append(dobrDat.TM2[ti][i]/8.6173e-5)
+    
+    fig, axs = plt.subplots(1, 2, sharex=True, sharey=True)
+    
+    sctr1 = axs[0].scatter(np.asarray(dobrDat.DENS[ti])[m1MixInds],
+                           np.asarray(dobrDat.M1ID[ti])[m1MixInds] - 1,
+                           label="Mantle",
+                           s=m1Sizes,
+                           c=m1Colors,
+                           cmap=parula_map,
+                           vmin=3e2,
+                           vmax=1e4,
+                           alpha=0.3)
+    sctr2 = axs[1].scatter(np.asarray(dobrDat.DENS[ti])[m2MixInds],
+                           np.asarray(dobrDat.M2ID[ti])[m2MixInds] - 1,
+                           label="Core",
+                           s=m2Sizes,
+                           c=m2Colors,
+                           cmap=parula_map,
+                           vmin=3e2,
+                           vmax=1e4,
+                           alpha=0.3)
+    clb = plt.colorbar(sctr2,
+                       ax=axs,
+                       orientation="horizontal",
+                       fraction=0.1,
+                       anchor=(0.0, 3.0),
+                       panchor=(0.0, 1.0),
+                       label="Temperature (K)")
+    clb.set_alpha(1)
+    clb.draw_all()
+
+    axs[0].set_title("Mantle Mixing")
+    axs[1].set_title("Core Mixing")
+    
+    # Make sure save directory is valid
+    if saveDir[-1] != '/':
+        saveDir = saveDir+'/'
+    fig.savefig(saveDir+"prfMixing_t{:.2f}.png".format(dobrDat.times[ti]/3600),
+                bbox_inches='tight')
+    plt.close()
+
+
+
+def plotEnergyScatter(dobrDat, diskInds, escpInds, M_P, R_P, saveDir, ti=0, **kwargs):
+    try:
+        com = kwargs["com"]
+    except KeyError:
+        com = dobrDat.getCOM3d(ti)[0]
+        
+    # Get a slice though the xy-plane
+    try:
+        slcInds = kwargs["slcInds"]
+    except KeyError:
+        p = [0, 0, 0]
+        n = [0, 0, 1]
+        slcInds = dobrDat.slice2dFrom3d(p, n, ti)
+
+    masses = (np.asarray(dobrDat.M1[ti]) + np.asarray(dobrDat.M2[ti]))[slcInds]
+    rads = dobrDat.getRads3d(ti, com=com)[slcInds]
+    radInds = rads.argsort()
+
+    KEs = np.asarray(dobrDat.KE[ti])[slcInds]*1e-4
+    GUs = np.asarray(dobrDat.SGU[ti])[slcInds]*1e-4
+    Sum = KEs + GUs
+
+    fig, ax = plt.subplots()
+    smSctr = plt.scatter(rads/1e5, Sum, s=1)
+    guSctr = plt.scatter(rads/1e5, GUs, s=1)
+    keSctr = plt.scatter(rads/1e5, KEs, s=1)
+
+    Rs = np.linspace(R_P, 1e10, 200)
+    E_escp = G*M_P/Rs
+    escpLn = plt.plot(Rs*1e-5, E_escp*1e-4, c='r', ls='--', label='Escaped')
+
+    ax.set_xlim(0, 1e5)
+    ax.set_ylim(-5e7, 5e7)
+    ax.axvline(x=R_P/1e5, ls='--', label="R_P")
+
+    # make proxy artist for legend entries
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend((keSctr, guSctr, smSctr, handles[0]), ('Kenetic', 'Gavitational', 'Total', labels[0]), loc="upper right")
+    
+    plt.title("Cell Energies at t = {:.2f} hrs".format(dobrDat.times[ti]/3600))
+    plt.xlabel("Radial distance (km)")
+    plt.ylabel("Specific Energy (J/kg)")
     ax.xaxis.set_major_formatter(fmtr)
     ax.yaxis.set_major_formatter(fmtr)
     plt.tight_layout()
     # Make sure save directory is valid
     if saveDir[-1] != '/':
         saveDir = saveDir+'/'
-    fig.savefig(saveDir+"slcDens_t{:.2f}.png".format(dobrDat.times[ti]/3600))
+    fig.savefig(saveDir+"energyScatter_t{:.2f}.png".format(dobrDat.times[ti]/3600))
     plt.close()
 
 
 
-def plotAvels(dobrDat, diskInds, escpdInds, M_P, R_P, saveDir, ti=0):
-    com, comInds = dobrDat.getCOM3d(ti)
-
+def plotAvels(dobrDat, diskInds, escpInds, M_P, R_P, saveDir, ti=0, **kwargs):
+    # get center of mass
+    try:
+        com = kwargs["com"]
+    except KeyError:
+        com = dobrDat.getCOM3d(ti)[0]
+        
     # Get a slice though the xy-plane
-    p = [0, 0, 0]
-    n = [0, 0, 1]
-    slcInds = dobrDat.slice2dFrom3d(p, n, ti)
+    try:
+        slcInds = kwargs["slcInds"]
+    except KeyError:
+        p = [0, 0, 0]
+        n = [0, 0, 1]
+        slcInds = dobrDat.slice2dFrom3d(p, n, ti)
 
     rads = dobrDat.getRads3d(ti, com=com)[slcInds]
+    masses = (np.asarray(dobrDat.M1[ti]) + np.asarray(dobrDat.M2[ti]))[slcInds]
     
-    # For each cell , solve for 'massless_a' (the orbital radius the cell would
-    # have after relaxation divided by the mass of the planet) using 
-    # sqrt(G * M_P * a_eq) = [specific angular momentum]
-    massless_a = np.zeros(slcInds.shape)
+    # For each cell calculate the specific angular momentum, 'am'
     ams = np.zeros(slcInds.shape)
     for j, k in enumerate(slcInds):
         if dobrDat.M1[ti][k] == 0 and dobrDat.M2[ti][k] == 0:
@@ -335,7 +526,6 @@ def plotAvels(dobrDat, diskInds, escpdInds, M_P, R_P, saveDir, ti=0):
         vel = [dobrDat.VX[ti][k], dobrDat.VY[ti][k], dobrDat.VZ[ti][k]]
         am = np.linalg.norm(np.cross(pos, vel)) # specific angular momentum
         ams[j] = am
-        massless_a[j] = pow(am, 2)/G # [orbital radius] * [M_P]
 
     # Make an angular velocity scatter plot and over-lay keplerian profile
     avs = np.zeros(slcInds.shape)
@@ -346,11 +536,11 @@ def plotAvels(dobrDat, diskInds, escpdInds, M_P, R_P, saveDir, ti=0):
         avs[j] = ams[j]/pow(rads[j], 2)
         if k in diskInds:
             colors.append((0, 0, 1, 0.5))
-        elif k in escpdInds:
+        elif k in escpInds:
             colors.append((1, 0, 0, 0.5))
         else:
             colors.append((0, 0, 0, 0.5))
-        
+            
     fig, ax = plt.subplots()
     plt.scatter(np.asarray(rads)/1e5, avs, s=1, c=colors)
     rs = np.linspace(0, 2e10, 300)
@@ -364,15 +554,19 @@ def plotAvels(dobrDat, diskInds, escpdInds, M_P, R_P, saveDir, ti=0):
     plt.ylabel("Angular velocity (rad/s)")
     ax.xaxis.set_major_formatter(fmtr)
     ax.yaxis.set_major_formatter(fmtr)
+
     plt.tight_layout()
+
     # Make sure save directory is valid
     if saveDir[-1] != '/':
         saveDir = saveDir+'/'
     fig.savefig(saveDir+"angVel_t{:.2f}.png".format(dobrDat.times[ti]/3600))
     plt.close()
 
+
     
-def plotOrbitRad(dobrDat, diskInds, escpdInds, M_P, R_P, saveDir, ti=0):
+'''
+def plotOrbitRad(dobrDat, diskInds, escpInds, M_P, R_P, saveDir, ti=0):
     masses = np.asarray(dobrDat.M1[ti]) + np.asarray(dobrDat.M2[ti])
     com, comInds = dobrDat.getCOM3d(ti)
     
@@ -408,7 +602,7 @@ def plotOrbitRad(dobrDat, diskInds, escpdInds, M_P, R_P, saveDir, ti=0):
         avs[j] = ams[j]/pow(rads[j], 2)
         if k in diskInds:
             colors.append((0, 0, 1, 0.5))
-        elif k in escpdInds:
+        elif k in escpInds:
             colors.append((1, 0, 0, 0.5))
         else:
             colors.append((0, 0, 0, 0.5))
@@ -428,68 +622,463 @@ def plotOrbitRad(dobrDat, diskInds, escpdInds, M_P, R_P, saveDir, ti=0):
     plt.tight_layout()
     fig.savefig(saveDir+"orbRad_t{:.2f}.png".format(dobrDat.times[ti]/3600))
     plt.close()
+'''
 
 
 
-def plotEnergies(impactDir, impactName, dobrFname, saveDir):
-    # get energies from hcth file (histDat)
-    histDat = hcr.HcthReader(impactDir+impactName+'/hcth')
-    
-    Eken = histDat.mcube[0][0] + histDat.mcube[0][1]
-    Eint = histDat.mcube[-4][0] + histDat.mcube[-4][1]
-    Egra = []
-    
-    # Integrate the gravitational potential energy from the
-    # data-out-binary-reader file (dobrDat)
+def plotEnergyTotal_dyn(impactDir, impactName, dobrFname, saveDir):
+    # Integrate the energy from the data-out-binary-reader file (dobrDat)
     dobrDat = dor.DataOutBinReader()
     cycs, numCycs = dobrDat.getCycles(dobrFname, impactDir+impactName)
+    erthEken = np.zeros(numCycs)
+    diskEken = np.zeros(numCycs)
+    escpEken = np.zeros(numCycs)
+    erthEint = np.zeros(numCycs)
+    diskEint = np.zeros(numCycs)
+    escpEint = np.zeros(numCycs)
+    erthEgra = np.zeros(numCycs)
+    diskEgra = np.zeros(numCycs)
+    escpEgra = np.zeros(numCycs)
     print "Number of dumps to analyze: {}".format(len(cycs))
-    dobrTimes = []
-    for cyc in cycs:
+    dobrTs = np.zeros(numCycs)
+    for i, cyc in enumerate(cycs):
         dobrDat = dor.DataOutBinReader()
         dobrDat.readSev(dobrFname, cyc, impactDir+impactName)
-        print "time of this data dump: {}".format(dobrDat.times[0])
+        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        dobrTs[i] = dobrDat.times[0]/3600
+        M_P, R_P, erthInds, diskInds, escpInds = dobrDat.findPlanet(0)
 
-        dobrTimes.append(dobrDat.times[0])
-        Egra.append( 1e-7*( np.asarray(dobrDat.SGU)
-                            *( np.asarray(dobrDat.M1)
-                               + np.asarray(dobrDat.M2) ) ).sum())
-
-    print dobrTimes
+        erthEken[i] = 1e-7*( np.asarray(dobrDat.KE[0])[erthInds]
+                             *( np.asarray(dobrDat.M1[0])[erthInds]
+                                + np.asarray(dobrDat.M2[0])[erthInds] ) ).sum()
+        diskEken[i] = 1e-7*( np.asarray(dobrDat.KE[0])[diskInds]
+                             *( np.asarray(dobrDat.M1[0])[diskInds]
+                                + np.asarray(dobrDat.M2[0])[diskInds] ) ).sum()
+        escpEken[i] = 1e-7*( np.asarray(dobrDat.KE[0])[escpInds]
+                             *( np.asarray(dobrDat.M1[0])[escpInds]
+                                + np.asarray(dobrDat.M2[0])[escpInds] ) ).sum()
         
-    Eken_spl = interpolate.splrep(histDat.times, Eken)
-    Eint_spl = interpolate.splrep(histDat.times, Eint)
-    Egra_spl = interpolate.splrep(dobrTimes, Egra)
-
-    finalT = min((histDat.times[-1], dobrTimes[-1]))
-    numTs = min((len(histDat.times), len(dobrTimes)))
-    newTs = np.linspace(0, finalT,
-                        numTs,
-                        endpoint=True)
+        erthEint[i] = 1e-7*( np.asarray(dobrDat.IE[0])[erthInds]
+                             *( np.asarray(dobrDat.M1[0])[erthInds]
+                                + np.asarray(dobrDat.M2[0])[erthInds] ) ).sum()
+        diskEint[i] = 1e-7*( np.asarray(dobrDat.IE[0])[diskInds]
+                             *( np.asarray(dobrDat.M1[0])[diskInds]
+                                + np.asarray(dobrDat.M2[0])[diskInds] ) ).sum()
+        escpEint[i] = 1e-7*( np.asarray(dobrDat.IE[0])[escpInds]
+                             *( np.asarray(dobrDat.M1[0])[escpInds]
+                                + np.asarray(dobrDat.M2[0])[escpInds] ) ).sum()
         
-    newEken = interpolate.splev(newTs, Eken_spl)
-    newEint = interpolate.splev(newTs, Eint_spl)
-    newEgra = interpolate.splev(newTs, Egra_spl)
+        erthEgra[i] = 1e-7*( np.asarray(dobrDat.SGU[0])[erthInds]
+                             *( np.asarray(dobrDat.M1[0])[erthInds]
+                                + np.asarray(dobrDat.M2[0])[erthInds] ) ).sum()
+        diskEgra[i] = 1e-7*( np.asarray(dobrDat.SGU[0])[diskInds]
+                             *( np.asarray(dobrDat.M1[0])[diskInds]
+                                + np.asarray(dobrDat.M2[0])[diskInds] ) ).sum()
+        escpEgra[i] = 1e-7*( np.asarray(dobrDat.SGU[0])[escpInds]
+                             *( np.asarray(dobrDat.M1[0])[escpInds]
+                                + np.asarray(dobrDat.M2[0])[escpInds] ) ).sum()
+        
+    colors = parula_map(np.linspace(0, 1, 7))
 
-    normedZeroE = newEgra[-1]
+    '''
+    dobrTs = dobrTs[:2]
+    erthEken = erthEken[:2]
+    diskEken = diskEken[:2]
+    escpEken = escpEken[:2]
+    erthEint = erthEint[:2]
+    diskEint = diskEint[:2]
+    escpEint = escpEint[:2]
+    erthEgra = erthEgra[:2]
+    diskEgra = diskEgra[:2]
+    escpEgra = escpEgra[:2]
+    '''
+    normedZeroEs = ( (erthEgra + diskEgra + escpEgra).min()
+                     * np.ones(len(dobrTs)) )
+    Emax = ( ( erthEgra + diskEgra + escpEgra )
+             + ( erthEken + diskEken + escpEken)
+             + ( erthEint + diskEint + escpEint ) ).max()
 
-    colors = parula_map(np.linspace(0, 1, 5))
+    fig, ax_E = plt.subplots()
 
-    plt.plot(newTs, newEgra - normedZeroE, label='GPE', c='k')
-    plt.fill_between(newTs,
-                     newEgra - normedZeroE,
-                     newEgra + newEint - normedZeroE,
-                     color=colors[1])
-    plt.plot(newTs, newEgra + newEint - normedZeroE, label='IE', c='k')
-    plt.fill_between(newTs,
-                     newEgra + newEint - normedZeroE,
-                     newEgra + newEint + newEken - normedZeroE,
-                     color=colors[3])
-    plt.plot(newTs, newEgra + newEint + newEken - normedZeroE, label='KE', c='k')
+    '''
+    ax_E.plot(dobrTs, normedZeroEs, c='k', lw=1)
+    ax_E.plot(dobrTs, erthEgra + diskEgra + escpEgra, c='k', lw=1)
+    ax_E.plot(dobrTs,
+              ( erthEgra + diskEgra + escpEgra )
+              + ( erthEken ),
+              c='k',
+              lw=1)
+    ax_E.plot(dobrTs,
+              ( erthEgra + diskEgra + escpEgra )
+              + ( erthEken + diskEken),
+              c='k',
+              lw=1)
+    ax_E.plot(dobrTs,
+              ( erthEgra + diskEgra + escpEgra )
+              + ( erthEken + diskEken + escpEken),
+              c='k',
+              lw=1)
+    ax_E.plot(dobrTs,
+              ( erthEgra + diskEgra + escpEgra )
+              + ( erthEken + diskEken + escpEken)
+              + ( erthEint ),
+              c='k',
+              lw=1)
+    ax_E.plot(dobrTs,
+              ( erthEgra + diskEgra + escpEgra )
+              + ( erthEken + diskEken + escpEken)
+              + ( erthEint + diskEint ),
+              c='k',
+              lw=1)
+    ax_E.plot(dobrTs,
+              ( erthEgra + diskEgra + escpEgra )
+              + ( erthEken + diskEken + escpEken)
+              + ( erthEint + diskEint + escpEint ),
+              c='k',
+              lw=1)
+    '''
 
+    # plot energy minimum and gravitational potential energies
+    ax_E.fill_between(dobrTs,
+                      normedZeroEs,
+                      erthEgra + diskEgra + escpEgra,
+                      color=colors[0])
+    ax_E.fill_between(dobrTs,
+                      erthEgra + diskEgra + escpEgra,
+                      ( erthEgra + diskEgra + escpEgra )
+                      + ( erthEken ),
+                      color=colors[1])
 
+    # plot kinetic energies
+    ax_E.fill_between(dobrTs,
+                      ( erthEgra + diskEgra + escpEgra )
+                      + ( erthEken ),
+                      ( erthEgra + diskEgra + escpEgra )
+                      + ( erthEken + diskEken),
+                      color=colors[2])
+    ax_E.fill_between(dobrTs,
+                      ( erthEgra + diskEgra + escpEgra )
+                      + ( erthEken + diskEken),
+                      ( erthEgra + diskEgra + escpEgra )
+                      + ( erthEken + diskEken + escpEken),
+                      color=colors[3])
+    ax_E.fill_between(dobrTs,
+                      ( erthEgra + diskEgra + escpEgra )
+                      + ( erthEken + diskEken + escpEken),
+                      ( erthEgra + diskEgra + escpEgra )
+                      + ( erthEken + diskEken + escpEken)
+                      + ( erthEint ),
+                      color=colors[4])
+
+    # plot internal energies
+    ax_E.fill_between(dobrTs,
+                      ( erthEgra + diskEgra + escpEgra )
+                      + ( erthEken + diskEken + escpEken)
+                      + ( erthEint ),
+                      ( erthEgra + diskEgra + escpEgra )
+                      + ( erthEken + diskEken + escpEken)
+                      + ( erthEint + diskEint ),
+                      color=colors[5])
+    ax_E.fill_between(dobrTs,
+                      ( erthEgra + diskEgra + escpEgra )
+                      + ( erthEken + diskEken + escpEken)
+                      + ( erthEint + diskEint ),
+                      ( erthEgra + diskEgra + escpEgra )
+                      + ( erthEken + diskEken + escpEken)
+                      + ( erthEint + diskEint + escpEint ),
+                      color=colors[6])
+
+    # make second y axis to display percentage
+    ax_perc = ax_E.twinx()
+    ax_perc.set_ylim([0, 1])
+    
+    ax_E.set_ylim([normedZeroEs[0], Emax])
+    ax_E.set_xlim([0, dobrTs[-1]])
+    
+    # make proxy artists for legend entries
+    boxes = []
+    for c in colors:
+        boxes.append(mpatches.FancyBboxPatch((0, 0), 1, 1, fc=c))
+
+    plt.legend(boxes,
+               ("GU",
+                "Earth KE", "Disk KE", "Escaped KE",
+                "Earth IE", "Disk IE", "Escaped IE"))
     
     # make sure saveDir has '/' before saving
     if saveDir[-1] != '/':
         saveDir = saveDir+'/'
-    plt.savefig(saveDir+"energyBudget.png")
+    plt.savefig(saveDir+"energyTotal_dyn.png")
+
+    return dobrTs, (erthEgra, erthEken, erthEint), (diskEgra, diskEken, diskEint), (escpEgra, escpEken, escpEint)
+
+
+
+def plotEnergyTotal_mat(impactDir, impactName, dobrFname, saveDir):
+    # Integrate the energy from the data-out-binary-reader file (dobrDat)
+    dobrDat = dor.DataOutBinReader()
+    cycs, numCycs = dobrDat.getCycles(dobrFname, impactDir+impactName)
+    EkenMat1 = np.zeros(numCycs)
+    EkenMat2 = np.zeros(numCycs)
+    EintMat1 = np.zeros(numCycs)
+    EintMat2 = np.zeros(numCycs)
+    EgraMat1 = np.zeros(numCycs)
+    EgraMat2 = np.zeros(numCycs)
+    print "Number of dumps to analyze: {}".format(len(cycs))
+    dobrTs = np.zeros(numCycs)
+    for i, cyc in enumerate(cycs):
+        dobrDat = dor.DataOutBinReader()
+        dobrDat.readSev(dobrFname, cyc, impactDir+impactName)
+        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        dobrTs[i] = dobrDat.times[0]/3600
+
+        EkenMat1[i] = 1e-7*( np.asarray(dobrDat.KE[0])
+                             * np.asarray(dobrDat.M1[0]) ).sum()
+        EkenMat2[i] = 1e-7*( np.asarray(dobrDat.KE[0])
+                             * np.asarray(dobrDat.M2[0]) ).sum()
+
+        EintMat1[i] = 1e-7*( np.asarray(dobrDat.IE[0])
+                             * np.asarray(dobrDat.M1[0]) ).sum()
+        EintMat2[i] = 1e-7*( np.asarray(dobrDat.IE[0])
+                             * np.asarray(dobrDat.M2[0]) ).sum()
+
+        EgraMat1[i] = 1e-7*( np.asarray(dobrDat.SGU[0])
+                             * np.asarray(dobrDat.M1[0]) ).sum()
+        EgraMat2[i] = 1e-7*( np.asarray(dobrDat.SGU[0])
+                             * np.asarray(dobrDat.M2[0]) ).sum()
+        
+    colors = parula_map(np.linspace(0, 1, 5))
+
+    '''
+    dobrTs = dobrTs[:2]
+    EkenMat1 = EkenMat1[:2]
+    EkenMat2 = EkenMat2[:2]
+    EintMat1 = EintMat1[:2]
+    EintMat2 = EintMat2[:2]
+    EgraMat1 = EgraMat1[:2]
+    EgraMat2 = EgraMat2[:2]
+    '''
+    normedZeroEs = ( (EgraMat1 + EgraMat2).min()
+                     *np.ones(len(dobrTs)) )
+    Emax = ( ( EgraMat1 + EgraMat2 )
+             + ( EkenMat1 + EkenMat2 )
+             + ( EintMat1 + EintMat2 ) ).max()
+
+    fig, ax_E = plt.subplots()
+    
+    # plot energy minimum and gravitational potential energies
+    ax_E.fill_between(dobrTs,
+                      normedZeroEs,
+                      EgraMat1 + EgraMat2,
+                      color=colors[0])
+
+    # plot kinetic energies
+    ax_E.fill_between(dobrTs,
+                      (   EgraMat1 + EgraMat2 ),
+                      (   EgraMat1 + EgraMat2 )
+                      + ( EkenMat1 ),
+                      color=colors[1])
+    ax_E.fill_between(dobrTs,
+                      (   EgraMat1 + EgraMat2 )
+                      + ( EkenMat1 ),
+                      (   EgraMat1 + EgraMat2 )
+                      + ( EkenMat1 + EkenMat2 ),
+                     color=colors[2])
+
+    # plot internal energies
+    ax_E.fill_between(dobrTs,
+                      (   EgraMat1 + EgraMat2 )
+                      + ( EkenMat1 + EkenMat2 ),
+                      (   EgraMat1 + EgraMat2 )
+                      + ( EkenMat1 + EkenMat2 )
+                      + ( EintMat1 ),
+                     color=colors[3])
+    ax_E.fill_between(dobrTs,
+                      (   EgraMat1 + EgraMat2 )
+                      + ( EkenMat1 + EkenMat2 )
+                      + ( EintMat1 ),
+                      (   EgraMat1 + EgraMat2 )
+                      + ( EkenMat1 + EkenMat2 )
+                      + ( EintMat1 + EintMat2 ),
+                     color=colors[4])
+
+    # make second y axis to display percentage
+    ax_perc = ax_E.twinx()
+    ax_perc.set_ylim([0, 1])
+    
+    ax_E.set_ylim([normedZeroEs[0], Emax])
+    ax_E.set_xlim([0, dobrTs[-1]])
+    
+    # make proxy artists for legend entries
+    boxes = []
+    for c in colors:
+        boxes.append(mpatches.FancyBboxPatch((0, 0), 1, 1, fc=c))
+
+    plt.legend(boxes,
+               ("GU",
+                "Mantle KE", "Core KE",
+                "Mantle IE", "Core IE"))
+    
+    # make sure saveDir has '/' before saving
+    if saveDir[-1] != '/':
+        saveDir = saveDir+'/'
+    plt.savefig(saveDir+"energyTotal_mat.png")
+
+    return dobrTs, (EgraMat1, EgraMat2), (EkenMat1, EkenMat2), (EintMat1, EintMat2)
+
+
+
+def plotAngMomTotal_dyn(impactDir, impactName, dobrFname, saveDir):
+    # Integrate the Angular momentum from the
+    # data-out-binary-reader file (dobrDat)
+    dobrDat = dor.DataOutBinReader()
+    cycs, numCycs = dobrDat.getCycles(dobrFname, impactDir+impactName)
+    erthAM = np.zeros(numCycs)
+    diskAM = np.zeros(numCycs)
+    escpAM = np.zeros(numCycs)
+    print "Number of dumps to analyze: {}".format(len(cycs))
+    dobrTs = np.zeros(numCycs)
+    for i, cyc in enumerate(cycs):
+        dobrDat = dor.DataOutBinReader()
+        dobrDat.readSev(dobrFname, cyc, impactDir+impactName)
+        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        dobrTs[i] = dobrDat.times[0]/3600
+        M_P, R_P, erthInds, diskInds, escpInds = dobrDat.findPlanet(0)
+
+        erthAM[i] = 1e-7*(
+            np.power(
+                np.power(np.asarray( dobrDat.LX[0] )[erthInds], 2)
+                + np.power(np.asarray(dobrDat.LY[0])[erthInds], 2)
+                + np.power(np.asarray(dobrDat.LZ[0])[erthInds], 2), 0.5 )
+            * ( np.asarray(dobrDat.M1[0])[erthInds]
+                + np.asarray(dobrDat.M2[0])[erthInds] ) ).sum()
+        diskAM[i] = 1e-7*(
+            np.power(
+                np.power(np.asarray( dobrDat.LX[0] )[diskInds], 2)
+                + np.power(np.asarray(dobrDat.LY[0])[diskInds], 2)
+                + np.power(np.asarray(dobrDat.LZ[0])[diskInds], 2), 0.5 )
+            * ( np.asarray(dobrDat.M1[0])[diskInds]
+                + np.asarray(dobrDat.M2[0])[diskInds] ) ).sum()
+        escpAM[i] = 1e-7*(
+            np.power(
+                np.power(np.asarray( dobrDat.LX[0] )[escpInds], 2)
+                + np.power(np.asarray(dobrDat.LY[0])[escpInds], 2)
+                + np.power(np.asarray(dobrDat.LZ[0])[escpInds], 2), 0.5 )
+            * ( np.asarray(dobrDat.M1[0])[escpInds]
+                + np.asarray(dobrDat.M2[0])[escpInds] ) ).sum()
+
+    colors = parula_map(np.linspace(0, 1, 3))
+    
+    fig, ax_AM = plt.subplots()
+
+    '''
+    dobrTs = dobrTs[:2]
+    erthAM = erthAM[:2]
+    diskAM = diskAM[:2]
+    escpAM = escpAM[:2]
+    '''
+    ax_AM.fill_between(dobrTs,
+                          0,
+                          erthAM,
+                          color=colors[0])
+    ax_AM.fill_between(dobrTs,
+                          erthAM,
+                          erthAM + diskAM,
+                          color=colors[1])
+    ax_AM.fill_between(dobrTs,
+                          erthAM + diskAM,
+                          erthAM + diskAM + escpAM,
+                          color=colors[2])
+
+    ax_AM.set_ylabel("Angular Momentum (kg m^2/s)")
+    ax_AM.set_xlabel("Time (hr)")
+
+    x1, x2, y1, y2 = plt.axis()
+    ax_AM.set_ylim([erthAM.min(),
+                       (erthAM + diskAM + escpAM).max()])
+    ax_AM.set_xlim([0, dobrTs[-1]])
+    
+    # make proxy artists for legend entries
+    boxes = []
+    for c in colors:
+        boxes.append(mpatches.FancyBboxPatch((0, 0), 1, 1, fc=c))
+
+    fig.legend(boxes, ("Earth", "Disk", "Escaped"))
+    
+    # make sure saveDir has '/' before saving
+    if saveDir[-1] != '/':
+        saveDir = saveDir+'/'
+    fig.savefig(saveDir+"angMomTotal_dyn.png")
+
+    return dobrTs, erthAM, diskAM, escpAM
+
+
+
+def plotAngMomTotal_mat(impactDir, impactName, dobrFname, saveDir):
+    # Integrate the Angular momentum from the
+    # data-out-binary-reader file (dobrDat)
+    dobrDat = dor.DataOutBinReader()
+    cycs, numCycs = dobrDat.getCycles(dobrFname, impactDir+impactName)
+    AMmat1 = np.zeros(numCycs)
+    AMmat2 = np.zeros(numCycs)
+    print "Number of dumps to analyze: {}".format(len(cycs))
+    dobrTs = np.zeros(numCycs)
+    for i, cyc in enumerate(cycs):
+        dobrDat = dor.DataOutBinReader()
+        dobrDat.readSev(dobrFname, cyc, impactDir+impactName)
+        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        dobrTs[i] = dobrDat.times[0]/3600
+
+        AMmat1[i] = 1e-7*(
+            np.power(
+                np.power(np.asarray( dobrDat.LX[0] ), 2)
+                + np.power(np.asarray(dobrDat.LY[0]), 2)
+                + np.power(np.asarray(dobrDat.LZ[0]), 2), 0.5 )
+            * np.asarray(dobrDat.M1[0]) ).sum()
+        AMmat2[i] = 1e-7*(
+            np.power(
+                np.power(np.asarray( dobrDat.LX[0] ), 2)
+                + np.power(np.asarray(dobrDat.LY[0]), 2)
+                + np.power(np.asarray(dobrDat.LZ[0]), 2), 0.5 )
+            * np.asarray(dobrDat.M2[0]) ).sum()
+
+    colors = parula_map(np.linspace(0, 1, 2))
+    
+    fig, ax_AM = plt.subplots()
+
+    '''
+    dobrTs = dobrTs[:2]
+    AMmat1 = AMmat1[:2]
+    AMmat2 = AMmat2[:2]
+    '''
+    ax_AM.fill_between(dobrTs,
+                       0,
+                       AMmat1,
+                       color=colors[0])
+    ax_AM.fill_between(dobrTs,
+                       AMmat1,
+                       AMmat1 + AMmat2,
+                       color=colors[1])
+
+    ax_AM.set_ylabel("Angular Momentum (kg m^2/s)")
+    ax_AM.set_xlabel("Time (hr)")
+
+    x1, x2, y1, y2 = plt.axis()
+    ax_AM.set_ylim([AMmat1.min(),
+                    (AMmat1 + AMmat2).max()])
+    ax_AM.set_xlim([0, dobrTs[-1]])
+    
+    # make proxy artists for legend entries
+    boxes = []
+    for c in colors:
+        boxes.append(mpatches.FancyBboxPatch((0, 0), 1, 1, fc=c))
+
+    fig.legend(boxes, ("Mantle", "Core"))
+    
+    # make sure saveDir has '/' before saving
+    if saveDir[-1] != '/':
+        saveDir = saveDir+'/'
+    fig.savefig(saveDir+"angMomTotal_mat.png")
+
+    return dobrTs, AMmat1, AMmat2
+

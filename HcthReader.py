@@ -82,7 +82,7 @@ class HcthReader:
         for i, name in enumerate(self.varNames):
             if name == 'MASS':
                 # gcube variable, so we must adjust i to fit the gcube array
-                massi = i - self.numMatVars - self.numTrcVars
+                massi = i - self.numMatVars - self.numTrcVars + 2
 
         if massi == -1:
             print "WARNING: MASS was not included in the history file"
@@ -96,7 +96,7 @@ class HcthReader:
         for i, name in enumerate(self.varNames):
             if name == 'ETOT':
                 # gcube variable, so we must adjust i to fit the gcube array
-                etoti = i - self.numMatVars - self.numTrcVars
+                etoti = i - self.numMatVars - self.numTrcVars + 2
 
         if etoti == -1:
             print "WARNING: ETOT was not included in the history file"
@@ -110,7 +110,7 @@ class HcthReader:
         for i, name in enumerate(self.varNames):
             if name == 'EK':
                 # gcube variable, so we must adjust i to fit the gcube array
-                ekeni = i - self.numMatVars - self.numTrcVars
+                ekeni = i - self.numMatVars - self.numTrcVars + 2
 
         if ekeni == -1:
             print "WARNING: KE was not included in the history file"
@@ -124,7 +124,7 @@ class HcthReader:
         for i, name in enumerate(self.varNames):
             if name == 'EINT':
                 # gcube variable, so we must adjust i to fit the gcube array
-                einti = i - self.numMatVars - self.numTrcVars
+                einti = i - self.numMatVars - self.numTrcVars + 2
 
         if einti == -1:
             print "WARNING: EINT was not included in the history file"
