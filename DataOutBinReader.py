@@ -431,8 +431,8 @@ class DataOutBinReader:
             if not hasattr(self, attr):
                 raise AttributeError("DataOutBinReader class has no attribute: {}".format(attr))
 
-        return ( np.asarray(self.SGU)*( np.asarray(self.M1)
-                                        + np.asarray(self.M2) ) )[0]
+        return np.asarray(self.SGU[0])*( np.asarray(self.M1[0])
+                                        + np.asarray(self.M2[0]) )
 
 
 
@@ -504,14 +504,21 @@ class DataOutBinReader:
 
     def getL3d(self, ti=0, **kwargs):
         try:
-            com = kwargs["com"]
-        except KeyError:
-            com = self.getCOM3d()[0]
-        try:
             inds = kwargs["inds"]
         except KeyError:
             inds = np.arange(len(self.centers[ti][0]))
-
+        try:
+            useCom = kwargs["useCom"]
+        except KeyError:
+            useCom = False
+        try:
+            com = kwargs["com"]
+        except KeyError:
+            if useCom:
+                com = self.getCOM3d()[0]
+            else:
+                com = [0, 0, 0]
+            
         reqAttrs = ['M1', 'M2', 'VX', 'VY', 'VZ']
         for attr in reqAttrs:
             if not hasattr(self, attr):
@@ -526,10 +533,179 @@ class DataOutBinReader:
                                           np.asarray(self.VY)[ti, inds],
                                           np.asarray(self.VZ)[ti, inds],
                                           masses):
-            r = [x - com[0], y - com[1], z - com[2]]
-            Ls.append(np.cross(r, [vx, vy, vz])*m)
-    
+            if useCom:
+                r = [x - com[0], y - com[1], z - com[2]]
+                Ls.append(np.cross(r, [vx, vy, vz])*m)
+            else:
+                Ls.append(np.cross([x, y, z], [vx, vy, vz])*m)
+                
         return Ls
+
+
+
+    def findPlanet(self, ti=0, **kwargs):
+        try:
+            com = kwargs["com"]
+        except KeyError:
+            com = self.getCOM3d()[0]
+        try:
+            lunarD = kwargs["lunarD"]
+        except KeyError:
+            lunarD = 2.5
+            
+        rads = self.getRads3d(ti, com=com)
+        masses = np.asarray(self.M1[ti]) + np.asarray(self.M2[ti])
+        
+        # Here we sort the indexes by distance from the center of mass
+        # The arrays which are in this order are the following:
+        radInds = rads.argsort()
+
+        # we define R_P as the average radius of the 16 cells having the
+        # greatest specific kenetic energy, which are no further that
+        # ~3*R_earth from the center of mass
+        upBnd_ind = np.searchsorted(rads[radInds], 2e9)
+        keInds = np.asarray(self.KE[ti])[radInds][:upBnd_ind].argsort()
+        R_P = rads[radInds][keInds][-8:].mean()
+
+        # Enforce boundary conditions on R_P: 0.5*R_E <= R_P <= 2*R_E
+        if R_P < 3e8:
+            R_P = 3e8
+        elif R_P > 1.2e9:
+            R_P = 1.2e9
+
+        # calculate an initial guess of the planet mass, M_P
+        M_P = 0
+        for k, j in enumerate(radInds):
+            if k > keInds[-1]:
+                break
+            M_P += masses[j]
+        
+        # calculate the relaxed orbits and compare these to R_P.
+        # For each cell, solve for 'aScaled' (the orbital radius the cell 
+        # would have after relaxation multiplied by the mass of the planet)
+        # using 
+        # sqrt(G * M_P * a_eq) = [specific angular momentum]
+        #              aScaled = a_eq*M_P
+        aScaled = np.zeros(radInds.shape)
+        omegas = np.zeros(radInds.shape)
+        for j in radInds:
+            pos = [self.centers[ti][0][j] - com[0], 
+                   self.centers[ti][1][j] - com[1], 
+                   self.centers[ti][2][j] - com[2]]
+            vel = [self.VX[ti][j], 
+                   self.VY[ti][j],
+                   self.VZ[ti][j]]
+            am = np.linalg.norm(np.cross(pos, vel)) # specific angular momentum
+            omegas[j] = am/(rads[j]**2)
+            aScaled[j] = pow(am, 2) / 6.674e-8 # [orbital radius]*M_P
+
+        print "initial M_P = {} kg".format(M_P/1e3)
+        
+        # Now we itteratively update the planet mass estimate by screening the
+        # cells with the aScaled array:
+        # if aScaled/M_P <= R_P => M_P++
+        # if aScaled/M_P > R_P => disk
+        newM_P = 0
+        while True:
+            for j in radInds:
+                # Ignore empty cells
+                if masses[j] < 1024*sys.float_info.epsilon:
+                    continue
+                # Ignore escaped cells
+                if self.KE[ti][j] - 6.674e-8*M_P/rads[j] > 0:
+                    continue
+                # Add mass if inside R_P
+                if aScaled[j]/M_P <= R_P:
+                    newM_P += masses[j]
+
+            # Enforce boundary conditions on M_P: 0.5*M_E <= M_P <= 2*M_E
+            if newM_P < 3e27:
+                newM_P = 3e27
+            elif newM_P > 1.2e28:
+                newM_P = 1.2e28
+                
+            print "updated M_P = {} kg".format(newM_P/1e3)
+
+            # If the the change in planet mass is proportionally small, 
+            # exit the itteration
+            if abs( newM_P/M_P  - 1 ) < pow(2.0, -6):
+                M_P = newM_P
+                break
+            else:
+                M_P = newM_P
+                newM_P = 0
+
+        # Find the escaped mass by comparing the cell's specific kinetic energy
+        # to the specific gravitational potential energy of the planet
+        pInds = []
+        diskInds = []
+        escpdInds = []
+        for j in radInds:
+            # Ignore empty cells
+            if masses[j] < 1024*sys.float_info.epsilon:
+                continue
+
+            if self.KE[ti][j] - 6.674e-8*M_P/rads[j] > 0:
+                escpdInds.append(j)
+            elif aScaled[j]/M_P <= R_P:
+                pInds.append(j)
+            else:
+                diskInds.append(j)
+
+        L_esc, L_D, L_tot = self.getFractionalLs(escpdInds, 
+                                                 diskInds,
+                                                 com=com)
+        print "R_P = {} km".format(R_P/1e5)
+        M_esc = masses[escpdInds].sum()
+        print "M_esc = {} kg".format(M_esc/1e3)
+        M_D = masses[diskInds].sum()
+        print "M_D = {} kg".format(M_D/1e3)
+        M_D_frac = ( ( np.asarray(self.M1[ti])[diskInds]
+                       *np.asarray(self.M1ID[ti])[diskInds] )
+                     +( np.asarray(self.M2[ti])[diskInds]
+                        *np.asarray(self.M2ID[ti])[diskInds] ) ).sum()
+        print "fraction of M_D from target = {}%".format(M_D_frac/M_D*100)
+        
+        # We use an angular momentum-balance equation to calculate the
+        # proportion of the disk material which accretes into a moon
+        #
+        # First we must find the average angular velocity of the planet
+        omega_P = 0
+        for j in pInds:
+            omega_P += masses[j]*omegas[j]
+        omega_P /= M_P
+        print "omega_P = {} rev/hr".format(omega_P*3600/2/np.pi)
+
+        # Next, we calculate the integrated mass.
+        # We'll need this for the next calcualtion
+        mSum = [masses[radInds][0]]
+        for i in radInds[1:]:
+            mSum.append( mSum[-1] + masses[i] )
+            if mSum[-1] > M_P:
+                M_enc = mSum[-1]
+        
+        # Now we must calculate the roche radius using fixed-point-itteration
+        # roche_N+1 = 2.44*pow( 3*M_enc(roche_N)/4/np.pi/lunarD, 1./3 )
+        # Our starting point is the roche radius of the 'M_P' we calcualted
+        # earlier
+        roche0 = 2.44*pow(3*M_P/4/np.pi/lunarD, 1./3)
+        rocheInd = np.searchsorted(rads[radInds], roche0)
+        rocheIndDiff = rocheInd
+        roche1 = rads[radInds][rocheInd - 1]
+        while abs(rocheIndDiff) > 1:
+            M_enc = mSum[rocheInd - 1]
+            roche0 = 2.44*pow(3*M_enc/4/np.pi/lunarD, 1./3)
+            rocheIndDiff = np.searchsorted(rads[radInds], roche0) - rocheInd
+            rocheInd += rocheIndDiff
+            roche1 = rads[radInds][rocheInd - 1]
+            
+        # Define several constants
+        A = pow(2*6.674e-8*M_enc*roche1, 0.5)
+        B = R_P**2*M_D*omega_P
+        M_L = (L_D - B)/(A - R_P**2*omega_P)
+        print "M_L = {} kg".format(M_L/1e3)
+
+        return M_P, R_P, pInds, diskInds, escpdInds
 
 
 
@@ -540,24 +716,22 @@ class DataOutBinReader:
             com = self.getCOM3d()[0]
 
         # First examine the escaped mass
-        escpdL = np.asarray( self.getL3d(ti, inds=escpdInds, com=com) )
+        escpdL = np.asarray( self.getL3d(ti, inds=escpdInds) )
         if len(escpdL) > 0:
             L_esc = np.linalg.norm([escpdL[:, 0].sum(), 
                                     escpdL[:, 1].sum(), 
                                     escpdL[:, 2].sum()])
-            print "escpdL.z.sum() = {}".format((escpdL[:, 2]).sum())
-            print "norm(escpdL.sum()) = {}".format(L_esc)
+            print "L_esc = {} L_EM".format(L_esc/3.5e41)
         else:
             L_esc = 0
 
         # Next the disk mass
-        diskL = np.asarray( self.getL3d(ti, inds=diskInds, com=com) )
+        diskL = np.asarray( self.getL3d(ti, inds=diskInds) )
         if len(diskL) > 0:
             L_D = np.linalg.norm( [diskL[:, 0].sum(), 
                                    diskL[:, 1].sum(), 
                                    diskL[:, 2].sum()] )
-            print "diskL.z.sum() = {}".format(diskL[:, 2].sum())
-            print "norm(diskL.sum()) = {}".format(L_D)
+            print "L_D = {} L_EM".format(L_D/3.5e41)
         else:
             L_D = 0
 
@@ -567,8 +741,7 @@ class DataOutBinReader:
         L_tot = np.linalg.norm( [totalL[:, 0].sum(), 
                                  totalL[:, 1].sum(), 
                                  totalL[:, 2].sum()] )
-        print "totalL.z.sum() = {}".format(totalL[:, 2].sum())
-        print "norm(totalL.sum()) = {}".format(L_tot)
+        print "L_tot = {} L_EM".format(L_tot/3.5e41)
         
         return L_esc, L_D, L_tot
 
