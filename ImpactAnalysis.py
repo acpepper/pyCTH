@@ -699,44 +699,7 @@ def plotEnergyTotal_dyn(impactDir, impactName, dobrFname, saveDir):
              + ( erthEint + diskEint + escpEint ) ).max()
 
     fig, ax_E = plt.subplots()
-
-    '''
-    ax_E.plot(dobrTs, normedZeroEs, c='k', lw=1)
-    ax_E.plot(dobrTs, erthEgra + diskEgra + escpEgra, c='k', lw=1)
-    ax_E.plot(dobrTs,
-              ( erthEgra + diskEgra + escpEgra )
-              + ( erthEken ),
-              c='k',
-              lw=1)
-    ax_E.plot(dobrTs,
-              ( erthEgra + diskEgra + escpEgra )
-              + ( erthEken + diskEken),
-              c='k',
-              lw=1)
-    ax_E.plot(dobrTs,
-              ( erthEgra + diskEgra + escpEgra )
-              + ( erthEken + diskEken + escpEken),
-              c='k',
-              lw=1)
-    ax_E.plot(dobrTs,
-              ( erthEgra + diskEgra + escpEgra )
-              + ( erthEken + diskEken + escpEken)
-              + ( erthEint ),
-              c='k',
-              lw=1)
-    ax_E.plot(dobrTs,
-              ( erthEgra + diskEgra + escpEgra )
-              + ( erthEken + diskEken + escpEken)
-              + ( erthEint + diskEint ),
-              c='k',
-              lw=1)
-    ax_E.plot(dobrTs,
-              ( erthEgra + diskEgra + escpEgra )
-              + ( erthEken + diskEken + escpEken)
-              + ( erthEint + diskEint + escpEint ),
-              c='k',
-              lw=1)
-    '''
+    
 
     # plot energy minimum and gravitational potential energies
     ax_E.fill_between(dobrTs,
@@ -748,6 +711,10 @@ def plotEnergyTotal_dyn(impactDir, impactName, dobrFname, saveDir):
                       ( erthEgra + diskEgra + escpEgra )
                       + ( erthEken ),
                       color=colors[1])
+    # plot the boundaries in black
+    ax_E.plot(dobrTs, normedZeroEs, c='k', lw=1)
+    ax_E.plot(dobrTs, erthEgra + diskEgra + escpEgra, c='k', lw=1)
+
 
     # plot kinetic energies
     ax_E.fill_between(dobrTs,
@@ -769,6 +736,23 @@ def plotEnergyTotal_dyn(impactDir, impactName, dobrFname, saveDir):
                       + ( erthEken + diskEken + escpEken)
                       + ( erthEint ),
                       color=colors[4])
+    # plot the boundaries in black
+    ax_E.plot(dobrTs,
+              ( erthEgra + diskEgra + escpEgra )
+              + ( erthEken ),
+              c='k',
+              lw=1)
+    ax_E.plot(dobrTs,
+              ( erthEgra + diskEgra + escpEgra )
+              + ( erthEken + diskEken),
+              c='k',
+              lw=1)
+    ax_E.plot(dobrTs,
+              ( erthEgra + diskEgra + escpEgra )
+              + ( erthEken + diskEken + escpEken),
+              c='k',
+              lw=1)
+
 
     # plot internal energies
     ax_E.fill_between(dobrTs,
@@ -787,14 +771,38 @@ def plotEnergyTotal_dyn(impactDir, impactName, dobrFname, saveDir):
                       + ( erthEken + diskEken + escpEken)
                       + ( erthEint + diskEint + escpEint ),
                       color=colors[6])
+    # plot the boundaries in black
+    ax_E.plot(dobrTs,
+              ( erthEgra + diskEgra + escpEgra )
+              + ( erthEken + diskEken + escpEken)
+              + ( erthEint ),
+              c='k',
+              lw=1)
+    ax_E.plot(dobrTs,
+              ( erthEgra + diskEgra + escpEgra )
+              + ( erthEken + diskEken + escpEken)
+              + ( erthEint + diskEint ),
+              c='k',
+              lw=1)
+    ax_E.plot(dobrTs,
+              ( erthEgra + diskEgra + escpEgra )
+              + ( erthEken + diskEken + escpEken)
+              + ( erthEint + diskEint + escpEint ),
+              c='k',
+              lw=1)
 
+    
     # make second y axis to display percentage
     ax_perc = ax_E.twinx()
     ax_perc.set_ylim([0, 1])
     
     ax_E.set_ylim([normedZeroEs[0], Emax])
     ax_E.set_xlim([0, dobrTs[-1]])
-    
+
+    ax_E.set_xlabel("Time (hr)")
+    ax_E.set_ylabel("Energy (J)")
+    ax_perc.set_ylabel("Fraction of maximum energy")
+
     # make proxy artists for legend entries
     boxes = []
     for c in colors:
@@ -871,7 +879,11 @@ def plotEnergyTotal_mat(impactDir, impactName, dobrFname, saveDir):
                       normedZeroEs,
                       EgraMat1 + EgraMat2,
                       color=colors[0])
+    # plot the boundaries in black
+    ax_E.plot(dobrTs, normedZeroEs, c='k', lw=1)
+    ax_E.plot(dobrTs, EgraMat1 + EgraMat2, c='k', lw=1)
 
+    
     # plot kinetic energies
     ax_E.fill_between(dobrTs,
                       (   EgraMat1 + EgraMat2 ),
@@ -884,6 +896,17 @@ def plotEnergyTotal_mat(impactDir, impactName, dobrFname, saveDir):
                       (   EgraMat1 + EgraMat2 )
                       + ( EkenMat1 + EkenMat2 ),
                      color=colors[2])
+    # plot the boundaries in black
+    ax_E.plot(dobrTs,
+              (   EgraMat1 + EgraMat2 )
+              + ( EkenMat1 ),
+              c='k'
+              lw=1)
+    ax_E.plot(dobrTs,
+              (   EgraMat1 + EgraMat2 )
+              + ( EkenMat1 + EkenMat2 ),
+              c='k'
+              lw=1)
 
     # plot internal energies
     ax_E.fill_between(dobrTs,
@@ -901,13 +924,31 @@ def plotEnergyTotal_mat(impactDir, impactName, dobrFname, saveDir):
                       + ( EkenMat1 + EkenMat2 )
                       + ( EintMat1 + EintMat2 ),
                      color=colors[4])
+    # plot the boundaries in black
+    ax_E.plot(dobrTs,
+              (   EgraMat1 + EgraMat2 )
+              + ( EkenMat1 + EkenMat2 )
+              + ( EintMat1 ),
+              c='k'
+              lw=1)
+    ax_E.plot(dobrTs,
+              (   EgraMat1 + EgraMat2 )
+              + ( EkenMat1 + EkenMat2 )
+              + ( EintMat1 + EintMat2 ),
+              c='k'
+              lw=1)
 
+    
     # make second y axis to display percentage
     ax_perc = ax_E.twinx()
     ax_perc.set_ylim([0, 1])
     
     ax_E.set_ylim([normedZeroEs[0], Emax])
     ax_E.set_xlim([0, dobrTs[-1]])
+
+    ax_E.set_xlabel("Time (hr)")
+    ax_E.set_ylabel("Energy (J)")
+    ax_perc.set_ylabel("Fraction of maximum energy")
     
     # make proxy artists for legend entries
     boxes = []
@@ -977,27 +1018,39 @@ def plotAngMomTotal_dyn(impactDir, impactName, dobrFname, saveDir):
     diskAM = diskAM[:2]
     escpAM = escpAM[:2]
     '''
+
+    # earth energy
     ax_AM.fill_between(dobrTs,
                           0,
                           erthAM,
                           color=colors[0])
+    # disk energy
     ax_AM.fill_between(dobrTs,
                           erthAM,
                           erthAM + diskAM,
                           color=colors[1])
+    # escaped energy
     ax_AM.fill_between(dobrTs,
                           erthAM + diskAM,
                           erthAM + diskAM + escpAM,
                           color=colors[2])
+    # plot the boundaries in black
+    ax_AM.plot(dobrTs, erthAM, c='k', lw=1)
+    ax_AM.plot(dobrTs, erthAM + diskAM, c='k', lw=1)
+    ax_AM.plot(dobrTs, erthAM + diskAM + escpAM, c='k', lw=1)
 
-    ax_AM.set_ylabel("Angular Momentum (kg m^2/s)")
-    ax_AM.set_xlabel("Time (hr)")
+    # make second y axis to display percentage
+    ax_perc = ax_AM.twinx()
+    ax_perc.set_ylim([0, 1])
 
-    x1, x2, y1, y2 = plt.axis()
     ax_AM.set_ylim([erthAM.min(),
                        (erthAM + diskAM + escpAM).max()])
     ax_AM.set_xlim([0, dobrTs[-1]])
-    
+
+    ax_AM.set_xlabel("Time (hr)")
+    ax_AM.set_ylabel("Angular Momentum (kg m^2/s)")
+    ax_perc.set_ylabel("Percentage of maximum angular momentum")
+
     # make proxy artists for legend entries
     boxes = []
     for c in colors:
@@ -1059,15 +1112,22 @@ def plotAngMomTotal_mat(impactDir, impactName, dobrFname, saveDir):
                        AMmat1,
                        AMmat1 + AMmat2,
                        color=colors[1])
+    # plot the boundaries in black
+    ax_AM.plot(dobrTs, AMmat1, c='k', lw=1)
+    ax_AM.plot(dobrTs, AMmat1 + AMmat2, c='k', lw=1)
+    
+    # make second y axis to display percentage
+    ax_perc = ax_AM.twinx()
+    ax_perc.set_ylim([0, 1])
 
-    ax_AM.set_ylabel("Angular Momentum (kg m^2/s)")
-    ax_AM.set_xlabel("Time (hr)")
-
-    x1, x2, y1, y2 = plt.axis()
     ax_AM.set_ylim([AMmat1.min(),
                     (AMmat1 + AMmat2).max()])
     ax_AM.set_xlim([0, dobrTs[-1]])
-    
+
+    ax_AM.set_xlabel("Time (hr)")
+    ax_AM.set_ylabel("Angular Momentum (kg m^2/s)")
+    ax_perc.set_ylabel("Percentage of maximum angular momentum")
+        
     # make proxy artists for legend entries
     boxes = []
     for c in colors:

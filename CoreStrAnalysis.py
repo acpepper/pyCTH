@@ -68,13 +68,17 @@ cm_data = [[0.2081, 0.1663, 0.5292], [0.2116238095, 0.1897809524, 0.5776761905],
 parula_map = LinearSegmentedColormap.from_list('parula', cm_data)
 
 
+
 def getCoreTemp(dobrDat,saveDir, ti=0, **kwargs):
     # get the center of mass
-    try:
-        com = kwargs["com"]
-    except KeyError:
-        com = dobrDat.getCOM3d(ti)[0]
+    com, comInds = dobrDat.getCOM3d(ti)
     
     # find the temperature of the COM
-
-    return comTemp, (avgTemp, stdDev)
+    comTemps = np.zeros(len(comInds))
+    for i, comi in enumerate(comInds):
+        comTemps[i] = dobrDat.TM2[ti][comi]
+        
+    avgTemp = 0
+    avgTstd = 0
+    
+    return comTemps.mean(), (avgTemp, avgTstd)
