@@ -194,6 +194,7 @@ def plotIntMass(sortedRads, EarthRadInd, mSum, time, saveDir):
     plt.ylabel("Intagrated mass (kg)")
     ax.xaxis.set_major_formatter(fmtr)
     plt.tight_layout()
+
     # Make sure save directory is valid
     if saveDir[-1] != '/':
         saveDir = saveDir+'/'
@@ -626,10 +627,10 @@ def plotOrbitRad(dobrDat, diskInds, escpInds, M_P, R_P, saveDir, ti=0):
 
 
 
-def plotEnergyTotal_dyn(impactDir, impactName, dobrFname, saveDir):
+def plotEnergyTotal_dyn(dataDir, saveDir, dobrFname="binDat"):
     # Integrate the energy from the data-out-binary-reader file (dobrDat)
     dobrDat = dor.DataOutBinReader()
-    cycs, numCycs = dobrDat.getCycles(dobrFname, impactDir+impactName)
+    cycs, numCycs = dobrDat.getCycles(dobrFname, dataDir)
     erthEken = np.zeros(numCycs)
     diskEken = np.zeros(numCycs)
     escpEken = np.zeros(numCycs)
@@ -643,7 +644,7 @@ def plotEnergyTotal_dyn(impactDir, impactName, dobrFname, saveDir):
     dobrTs = np.zeros(numCycs)
     for i, cyc in enumerate(cycs):
         dobrDat = dor.DataOutBinReader()
-        dobrDat.readSev(dobrFname, cyc, impactDir+impactName)
+        dobrDat.readSev(dobrFname, cyc, dataDir)
         print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
         dobrTs[i] = dobrDat.times[0]/3600
         M_P, R_P, erthInds, diskInds, escpInds = dobrDat.findPlanet(0)
@@ -822,10 +823,10 @@ def plotEnergyTotal_dyn(impactDir, impactName, dobrFname, saveDir):
 
 
 
-def plotEnergyTotal_mat(impactDir, impactName, dobrFname, saveDir):
+def plotEnergyTotal_mat(dataDir, saveDir, dobrFname="binDat"):
     # Integrate the energy from the data-out-binary-reader file (dobrDat)
     dobrDat = dor.DataOutBinReader()
-    cycs, numCycs = dobrDat.getCycles(dobrFname, impactDir+impactName)
+    cycs, numCycs = dobrDat.getCycles(dobrFname, dataDir)
     EkenMat1 = np.zeros(numCycs)
     EkenMat2 = np.zeros(numCycs)
     EintMat1 = np.zeros(numCycs)
@@ -836,7 +837,7 @@ def plotEnergyTotal_mat(impactDir, impactName, dobrFname, saveDir):
     dobrTs = np.zeros(numCycs)
     for i, cyc in enumerate(cycs):
         dobrDat = dor.DataOutBinReader()
-        dobrDat.readSev(dobrFname, cyc, impactDir+impactName)
+        dobrDat.readSev(dobrFname, cyc, dataDir)
         print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
         dobrTs[i] = dobrDat.times[0]/3600
 
@@ -900,12 +901,12 @@ def plotEnergyTotal_mat(impactDir, impactName, dobrFname, saveDir):
     ax_E.plot(dobrTs,
               (   EgraMat1 + EgraMat2 )
               + ( EkenMat1 ),
-              c='k'
+              c='k',
               lw=1)
     ax_E.plot(dobrTs,
               (   EgraMat1 + EgraMat2 )
               + ( EkenMat1 + EkenMat2 ),
-              c='k'
+              c='k',
               lw=1)
 
     # plot internal energies
@@ -929,13 +930,13 @@ def plotEnergyTotal_mat(impactDir, impactName, dobrFname, saveDir):
               (   EgraMat1 + EgraMat2 )
               + ( EkenMat1 + EkenMat2 )
               + ( EintMat1 ),
-              c='k'
+              c='k',
               lw=1)
     ax_E.plot(dobrTs,
               (   EgraMat1 + EgraMat2 )
               + ( EkenMat1 + EkenMat2 )
               + ( EintMat1 + EintMat2 ),
-              c='k'
+              c='k',
               lw=1)
 
     
@@ -969,11 +970,11 @@ def plotEnergyTotal_mat(impactDir, impactName, dobrFname, saveDir):
 
 
 
-def plotAngMomTotal_dyn(impactDir, impactName, dobrFname, saveDir):
+def plotAngMomTotal_dyn(dataDir, saveDir, dobrFname="binDat"):
     # Integrate the Angular momentum from the
     # data-out-binary-reader file (dobrDat)
     dobrDat = dor.DataOutBinReader()
-    cycs, numCycs = dobrDat.getCycles(dobrFname, impactDir+impactName)
+    cycs, numCycs = dobrDat.getCycles(dobrFname, dataDir)
     erthAM = np.zeros(numCycs)
     diskAM = np.zeros(numCycs)
     escpAM = np.zeros(numCycs)
@@ -981,7 +982,7 @@ def plotAngMomTotal_dyn(impactDir, impactName, dobrFname, saveDir):
     dobrTs = np.zeros(numCycs)
     for i, cyc in enumerate(cycs):
         dobrDat = dor.DataOutBinReader()
-        dobrDat.readSev(dobrFname, cyc, impactDir+impactName)
+        dobrDat.readSev(dobrFname, cyc, dataDir)
         print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
         dobrTs[i] = dobrDat.times[0]/3600
         M_P, R_P, erthInds, diskInds, escpInds = dobrDat.findPlanet(0)
@@ -1067,18 +1068,18 @@ def plotAngMomTotal_dyn(impactDir, impactName, dobrFname, saveDir):
 
 
 
-def plotAngMomTotal_mat(impactDir, impactName, dobrFname, saveDir):
+def plotAngMomTotal_mat(dataDir, saveDir, dobrFname="binDat"):
     # Integrate the Angular momentum from the
     # data-out-binary-reader file (dobrDat)
     dobrDat = dor.DataOutBinReader()
-    cycs, numCycs = dobrDat.getCycles(dobrFname, impactDir+impactName)
+    cycs, numCycs = dobrDat.getCycles(dobrFname, dataDir)
     AMmat1 = np.zeros(numCycs)
     AMmat2 = np.zeros(numCycs)
     print "Number of dumps to analyze: {}".format(len(cycs))
     dobrTs = np.zeros(numCycs)
     for i, cyc in enumerate(cycs):
         dobrDat = dor.DataOutBinReader()
-        dobrDat.readSev(dobrFname, cyc, impactDir+impactName)
+        dobrDat.readSev(dobrFname, cyc, dataDir)
         print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
         dobrTs[i] = dobrDat.times[0]/3600
 
