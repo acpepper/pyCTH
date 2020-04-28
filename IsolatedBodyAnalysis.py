@@ -162,54 +162,60 @@ def plotEnergySpec_dyn(dataDir, saveDir, dobrFname="binDat", **kwargs):
 
     colors = parula_map(np.linspace(0, 1, 7))
     
-    fig, axs = plt.subplots(1, 2)
+    fig1, ax1 = plt.subplots()
+    fig2, ax2 = plt.subplots()
 
     # plot the energy evolution
-    axs[0].plot(dobrTs, erthEken, c=colors[0])
-    axs[0].plot(dobrTs, diskEken, c=colors[1])
-    axs[0].plot(dobrTs, escpEken, c=colors[2])
-    axs[0].plot(dobrTs, erthEint, c=colors[3])
-    axs[0].plot(dobrTs, diskEint, c=colors[4])
-    axs[0].plot(dobrTs, escpEint, c=colors[5])
-    axs[0].plot(dobrTs, erthEgra + diskEgra + escpEgra, c=colors[6])
+    ax1.plot(dobrTs, erthEken, c=colors[0])
+    ax1.plot(dobrTs, diskEken, c=colors[1])
+    ax1.plot(dobrTs, escpEken, c=colors[2])
+    ax1.plot(dobrTs, erthEint, c=colors[3])
+    ax1.plot(dobrTs, diskEint, c=colors[4])
+    ax1.plot(dobrTs, escpEint, c=colors[5])
+    ax1.plot(dobrTs, erthEgra + diskEgra + escpEgra, c=colors[6])
     
     # plot the energy spectrum
-    axs[1].plot(Fs, np.abs(erthEkenSpec), c=colors[0])
-    axs[1].plot(Fs, np.abs(diskEkenSpec), c=colors[1])
-    axs[1].plot(Fs, np.abs(escpEkenSpec), c=colors[2])
-    axs[1].plot(Fs, np.abs(erthEintSpec), c=colors[3])
-    axs[1].plot(Fs, np.abs(diskEintSpec), c=colors[4])
-    axs[1].plot(Fs, np.abs(escpEintSpec), c=colors[5])
-    axs[1].plot(Fs, np.abs(EgraSpec), c=colors[6])
+    ax2.plot(Fs, np.abs(erthEkenSpec), c=colors[0])
+    ax2.plot(Fs, np.abs(diskEkenSpec), c=colors[1])
+    ax2.plot(Fs, np.abs(escpEkenSpec), c=colors[2])
+    ax2.plot(Fs, np.abs(erthEintSpec), c=colors[3])
+    ax2.plot(Fs, np.abs(diskEintSpec), c=colors[4])
+    ax2.plot(Fs, np.abs(escpEintSpec), c=colors[5])
+    ax2.plot(Fs, np.abs(EgraSpec), c=colors[6])
 
     # Make it look pretty
-    axs[0].set_title("Energy evolution")
-    axs[1].set_title("Energy spectrum")
+    ax1.set_title("Energy evolution")
+    ax2.set_title("Energy spectrum")
     
-    axs[0].set_xlabel("Time (hr)")
-    axs[0].set_ylabel("Energy (J)")
+    ax1.set_xlabel("Time (hr)")
+    ax1.set_ylabel("Energy (J)")
 
-    axs[0].set_xlim(0, dobrTs[-1])
+    ax1.set_xlim(0, dobrTs[-1])
     
-    axs[1].set_xlabel("Frequency (rot/hr)")
-    axs[1].set_ylabel("Amplitude (J)")
+    ax2.set_xlabel("Frequency (rot/hr)")
+    ax2.set_ylabel("Amplitude (J)")
 
-    axs[1].set_xlim(0, Fs[-1])
+    ax2.set_xlim(0, Fs[-1])
 
     # make proxy artists for legend entries
     boxes = []
     for c in colors:
         boxes.append(mpatches.FancyBboxPatch((0, 0), 1, 1, fc=c))
 
-    fig.legend(boxes,
-               ("GU",
-                "Earth KE", "Disk KE", "Escaped KE",
-                "Earth IE", "Disk IE", "Escaped IE"))
+    fig1.legend(boxes,
+                ("GU",
+                 "Earth KE", "Disk KE", "Escaped KE",
+                 "Earth IE", "Disk IE", "Escaped IE"))
+    fig2.legend(boxes,
+                ("GU",
+                 "Earth KE", "Disk KE", "Escaped KE",
+                 "Earth IE", "Disk IE", "Escaped IE"))
 
     # Make sure save directory is valid
     if saveDir[-1] != '/':
         saveDir = saveDir+'/'
-    fig.savefig(saveDir+"energySpec_dyn.png")
+    fig1.savefig(saveDir+"energyEvol_dyn.png")
+    fig1.savefig(saveDir+"energySpec_dyn.png")
 
 
 

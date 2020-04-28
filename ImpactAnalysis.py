@@ -188,7 +188,7 @@ def plotIntMass(sortedRads, EarthRadInd, mSum, time, saveDir):
     plt.axvline(x=sortedRads[EarthRadInd]/1e5, ls='--', c='r', label='R_P')
     plt.xlim(0, 1e5)
     plt.ylim(1e21, 8e24)
-    plt.legend(loc="lower right")
+    fig.legend(loc="lower right")
     plt.title("Integrated mass at t = {:.2f} hrs".format(time/3600))
     plt.xlabel("Radial distance (km)")
     plt.ylabel("Intagrated mass (kg)")
@@ -288,7 +288,7 @@ def plotSlice(dobrDat, diskInds, escpInds, R_P, saveDir, scal=("DENS", 1e3), ti=
     diskLgnd = mpatches.FancyBboxPatch((0, 0), 1, 1, fc='none', hatch='--')
     escpLgnd = mpatches.FancyBboxPatch((0, 0), 1, 1, fc='none', hatch='||')
     circLgnd = plt.scatter([], [], facecolors='none', edgecolors='g')
-    plt.legend((diskLgnd, escpLgnd, cntr, circLgnd), ("Disk material", "Escaped material", "Center of Mass", "Radius"), loc="upper right")    
+    fig.legend((diskLgnd, escpLgnd, cntr, circLgnd), ("Disk material", "Escaped material", "Center of Mass", "Radius"), loc="upper right")    
     
     plt.tight_layout()
 
@@ -482,7 +482,7 @@ def plotEnergyScatter(dobrDat, diskInds, escpInds, M_P, R_P, saveDir, ti=0, **kw
 
     # make proxy artist for legend entries
     handles, labels = ax.get_legend_handles_labels()
-    ax.legend((keSctr, guSctr, smSctr, handles[0]), ('Kenetic', 'Gavitational', 'Total', labels[0]), loc="upper right")
+    fig.legend((keSctr, guSctr, smSctr, handles[0]), ('Kenetic', 'Gavitational', 'Total', labels[0]), loc="upper right")
     
     plt.title("Cell Energies at t = {:.2f} hrs".format(dobrDat.times[ti]/3600))
     plt.xlabel("Radial distance (km)")
@@ -549,7 +549,7 @@ def plotAvels(dobrDat, diskInds, escpInds, M_P, R_P, saveDir, ti=0, **kwargs):
     plt.axhline(y=0.000581776417, ls='--', c='r', label="3 hr rotation period")
     plt.ylim(0, 0.0008)
     plt.xlim(0, 1e5)
-    plt.legend(loc="upper right")
+    fig.legend(loc="upper right")
     plt.title("Angular velocities at t = {:.2f} hrs".format(dobrDat.times[ti]/3600))
     plt.xlabel("Radial distance (km)")
     plt.ylabel("Angular velocity (rad/s)")
@@ -795,10 +795,10 @@ def plotEnergyTotal_dyn(dataDir, saveDir, dobrFname="binDat"):
     
     # make second y axis to display percentage
     ax_perc = ax_E.twinx()
-    ax_perc.set_ylim([0, 1])
+    ax_perc.set_ylim(0, 1)
     
-    ax_E.set_ylim([normedZeroEs[0], Emax])
-    ax_E.set_xlim([0, dobrTs[-1]])
+    ax_E.set_ylim(normedZeroEs[0], Emax)
+    ax_E.set_xlim(dobrTs[0], dobrTs[-1])
 
     ax_E.set_xlabel("Time (hr)")
     ax_E.set_ylabel("Energy (J)")
@@ -809,7 +809,7 @@ def plotEnergyTotal_dyn(dataDir, saveDir, dobrFname="binDat"):
     for c in colors:
         boxes.append(mpatches.FancyBboxPatch((0, 0), 1, 1, fc=c))
 
-    plt.legend(boxes,
+    fig.legend(boxes,
                ("GU",
                 "Earth KE", "Disk KE", "Escaped KE",
                 "Earth IE", "Disk IE", "Escaped IE"))
@@ -942,10 +942,10 @@ def plotEnergyTotal_mat(dataDir, saveDir, dobrFname="binDat"):
     
     # make second y axis to display percentage
     ax_perc = ax_E.twinx()
-    ax_perc.set_ylim([0, 1])
+    ax_perc.set_ylim(0, 1)
     
-    ax_E.set_ylim([normedZeroEs[0], Emax])
-    ax_E.set_xlim([0, dobrTs[-1]])
+    ax_E.set_ylim(normedZeroEs[0], Emax)
+    ax_E.set_xlim(dobrTs[0], dobrTs[-1])
 
     ax_E.set_xlabel("Time (hr)")
     ax_E.set_ylabel("Energy (J)")
@@ -956,7 +956,7 @@ def plotEnergyTotal_mat(dataDir, saveDir, dobrFname="binDat"):
     for c in colors:
         boxes.append(mpatches.FancyBboxPatch((0, 0), 1, 1, fc=c))
 
-    plt.legend(boxes,
+    fig.legend(boxes,
                ("GU",
                 "Mantle KE", "Core KE",
                 "Mantle IE", "Core IE"))
@@ -970,6 +970,290 @@ def plotEnergyTotal_mat(dataDir, saveDir, dobrFname="binDat"):
 
 
 
+def plotEnergy_dyn(dataDir, saveDir, dobrFname="binDat"):
+    # Integrate the energy from the data-out-binary-reader file (dobrDat)
+    dobrDat = dor.DataOutBinReader()
+    cycs, numCycs = dobrDat.getCycles(dobrFname, dataDir)
+    erthEken = np.zeros(numCycs)
+    diskEken = np.zeros(numCycs)
+    escpEken = np.zeros(numCycs)
+    erthEint = np.zeros(numCycs)
+    diskEint = np.zeros(numCycs)
+    escpEint = np.zeros(numCycs)
+    erthEgra = np.zeros(numCycs)
+    diskEgra = np.zeros(numCycs)
+    escpEgra = np.zeros(numCycs)
+    print "Number of dumps to analyze: {}".format(len(cycs))
+    dobrTs = np.zeros(numCycs)
+    for i, cyc in enumerate(cycs):
+        dobrDat = dor.DataOutBinReader()
+        dobrDat.readSev(dobrFname, cyc, dataDir)
+        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        dobrTs[i] = dobrDat.times[0]/3600
+        M_P, R_P, erthInds, diskInds, escpInds = dobrDat.findPlanet(0)
+
+        erthEken[i] = 1e-7*( np.asarray(dobrDat.KE[0])[erthInds]
+                             *( np.asarray(dobrDat.M1[0])[erthInds]
+                                + np.asarray(dobrDat.M2[0])[erthInds] ) ).sum()
+        diskEken[i] = 1e-7*( np.asarray(dobrDat.KE[0])[diskInds]
+                             *( np.asarray(dobrDat.M1[0])[diskInds]
+                                + np.asarray(dobrDat.M2[0])[diskInds] ) ).sum()
+        escpEken[i] = 1e-7*( np.asarray(dobrDat.KE[0])[escpInds]
+                             *( np.asarray(dobrDat.M1[0])[escpInds]
+                                + np.asarray(dobrDat.M2[0])[escpInds] ) ).sum()
+        
+        erthEint[i] = 1e-7*( np.asarray(dobrDat.IE[0])[erthInds]
+                             *( np.asarray(dobrDat.M1[0])[erthInds]
+                                + np.asarray(dobrDat.M2[0])[erthInds] ) ).sum()
+        diskEint[i] = 1e-7*( np.asarray(dobrDat.IE[0])[diskInds]
+                             *( np.asarray(dobrDat.M1[0])[diskInds]
+                                + np.asarray(dobrDat.M2[0])[diskInds] ) ).sum()
+        escpEint[i] = 1e-7*( np.asarray(dobrDat.IE[0])[escpInds]
+                             *( np.asarray(dobrDat.M1[0])[escpInds]
+                                + np.asarray(dobrDat.M2[0])[escpInds] ) ).sum()
+        
+        erthEgra[i] = 1e-7*( np.asarray(dobrDat.SGU[0])[erthInds]
+                             *( np.asarray(dobrDat.M1[0])[erthInds]
+                                + np.asarray(dobrDat.M2[0])[erthInds] ) ).sum()
+        diskEgra[i] = 1e-7*( np.asarray(dobrDat.SGU[0])[diskInds]
+                             *( np.asarray(dobrDat.M1[0])[diskInds]
+                                + np.asarray(dobrDat.M2[0])[diskInds] ) ).sum()
+        escpEgra[i] = 1e-7*( np.asarray(dobrDat.SGU[0])[escpInds]
+                             *( np.asarray(dobrDat.M1[0])[escpInds]
+                                + np.asarray(dobrDat.M2[0])[escpInds] ) ).sum()
+        
+    colors = parula_map(np.linspace(0, 1, 7))
+
+    '''
+    dobrTs = dobrTs[:4]
+    erthEken = erthEken[:4]
+    diskEken = diskEken[:4]
+    escpEken = escpEken[:4]
+    erthEint = erthEint[:4]
+    diskEint = diskEint[:4]
+    escpEint = escpEint[:4]
+    erthEgra = erthEgra[:4]
+    diskEgra = diskEgra[:4]
+    escpEgra = escpEgra[:4]
+    '''
+    normedZeroEs = ( (erthEgra + diskEgra + escpEgra).max()
+                     *np.ones(len(dobrTs)) )
+    Etot = ( erthEken + diskEken + escpEken - normedZeroEs
+             + erthEint + diskEint + escpEint
+             + erthEgra + diskEgra + escpEgra )
+    
+    fig, ax_E = plt.subplots()
+
+    # Gravitational potential energy
+    ax_E.plot(dobrTs,
+              abs( ( erthEgra + diskEgra + escpEgra - normedZeroEs )
+                   / Etot),
+              c=colors[0])
+
+    # Kinetic energies
+    ax_E.plot(dobrTs, abs(erthEken/Etot), c=colors[1])
+    ax_E.plot(dobrTs, abs(diskEken/Etot), c=colors[2])
+    ax_E.plot(dobrTs, abs(escpEken/Etot), c=colors[3])
+
+    # Internal energies
+    ax_E.plot(dobrTs, abs(erthEint/Etot), c=colors[4])
+    ax_E.plot(dobrTs, abs(diskEint/Etot), c=colors[5])
+    ax_E.plot(dobrTs, abs(escpEint/Etot), c=colors[6])
+
+    # ax_E.set_ylim([normedZeroEs[0], Emax])
+    ax_E.set_xlim([dobrTs[0], dobrTs[-1]])
+
+    ax_E.set_xlabel("Time (hr)")
+    ax_E.set_ylabel("Fraction of total energy")
+
+    # make proxy artists for legend entries
+    boxes = []
+    for c in colors:
+        boxes.append(mpatches.FancyBboxPatch((0, 0), 1, 1, fc=c))
+
+    fig.legend(boxes,
+               ("GU",
+                "Earth KE", "Disk KE", "Escaped KE",
+                "Earth IE", "Disk IE", "Escaped IE"))
+    
+    # make sure saveDir has '/' before saving
+    if saveDir[-1] != '/':
+        saveDir = saveDir+'/'
+    plt.savefig(saveDir+"energy_dyn.png")
+
+    return dobrTs, (erthEgra, erthEken, erthEint), (diskEgra, diskEken, diskEint), (escpEgra, escpEken, escpEint)
+
+
+
+def plotEnergy_mat(dataDir, saveDir, dobrFname="binDat"):
+    # Integrate the energy from the data-out-binary-reader file (dobrDat)
+    dobrDat = dor.DataOutBinReader()
+    cycs, numCycs = dobrDat.getCycles(dobrFname, dataDir)
+    EkenMat1 = np.zeros(numCycs)
+    EkenMat2 = np.zeros(numCycs)
+    EintMat1 = np.zeros(numCycs)
+    EintMat2 = np.zeros(numCycs)
+    EgraMat1 = np.zeros(numCycs)
+    EgraMat2 = np.zeros(numCycs)
+    print "Number of dumps to analyze: {}".format(len(cycs))
+    dobrTs = np.zeros(numCycs)
+    for i, cyc in enumerate(cycs):
+        dobrDat = dor.DataOutBinReader()
+        dobrDat.readSev(dobrFname, cyc, dataDir)
+        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        dobrTs[i] = dobrDat.times[0]/3600
+
+        EkenMat1[i] = 1e-7*( np.asarray(dobrDat.KE[0])
+                             * np.asarray(dobrDat.M1[0]) ).sum()
+        EkenMat2[i] = 1e-7*( np.asarray(dobrDat.KE[0])
+                             * np.asarray(dobrDat.M2[0]) ).sum()
+
+        EintMat1[i] = 1e-7*( np.asarray(dobrDat.IE[0])
+                             * np.asarray(dobrDat.M1[0]) ).sum()
+        EintMat2[i] = 1e-7*( np.asarray(dobrDat.IE[0])
+                             * np.asarray(dobrDat.M2[0]) ).sum()
+
+        EgraMat1[i] = 1e-7*( np.asarray(dobrDat.SGU[0])
+                             * np.asarray(dobrDat.M1[0]) ).sum()
+        EgraMat2[i] = 1e-7*( np.asarray(dobrDat.SGU[0])
+                             * np.asarray(dobrDat.M2[0]) ).sum()
+        
+    colors = parula_map(np.linspace(0, 1, 5))
+    '''
+    dobrTs = dobrTs[:2]
+    EkenMat1 = EkenMat1[:2]
+    EkenMat2 = EkenMat2[:2]
+    EintMat1 = EintMat1[:2]
+    EintMat2 = EintMat2[:2]
+    EgraMat1 = EgraMat1[:2]
+    EgraMat2 = EgraMat2[:2]
+    '''
+    normedZeroEs = ( (EgraMat1 + EgraMat2).min()
+                     *np.ones(len(dobrTs)) )
+    Etot = ( ( EgraMat1 + EgraMat2  - normedZeroEs )
+             + ( EkenMat1 + EkenMat2 )
+             + ( EintMat1 + EintMat2 ) ).max()
+    
+    fig, ax_E = plt.subplots()
+
+    # plot the fractional energy
+    # gravitational potential energy
+    ax_E.plot(dobrTs,
+              abs((EgraMat1 + EgraMat2 - normedZeroEs)/Etot),
+              c=colors[0])
+
+    # kinetic energy
+    ax_E.plot(dobrTs, abs(EkenMat1/Etot), c=colors[1])
+    ax_E.plot(dobrTs, abs(EkenMat2/Etot), c=colors[2])
+
+    # Internal energies
+    ax_E.plot(dobrTs, abs(EintMat1/Etot), c=colors[3])
+    ax_E.plot(dobrTs, abs(EintMat2/Etot), c=colors[4])
+    
+    ax_E.set_xlim([dobrTs[0], dobrTs[-1]])
+
+    ax_E.set_xlabel("Time (hr)")
+    ax_E.set_ylabel("Fraction of total energy")
+
+    # make proxy artists for legend entries
+    boxes = []
+    for c in colors:
+        boxes.append(mpatches.FancyBboxPatch((0, 0), 1, 1, fc=c))
+
+    fig.legend(boxes,
+               ("GU",
+                "Mantle KE", "Core KE",
+                "Mantle IE", "Core IE"))
+    
+    # make sure saveDir has '/' before saving
+    if saveDir[-1] != '/':
+        saveDir = saveDir+'/'
+    plt.savefig(saveDir+"energy_mat.png")
+
+    return dobrTs, (EgraMat1, EgraMat2), (EkenMat1, EkenMat2), (EintMat1, EintMat2)
+
+
+
+def plotEnergy(dataDir, saveDir, dobrFname="binDat", **kwargs):
+    # determine which categories we're dividing the energy into
+    # mat = material
+    # dyn = dynamical (e.g. disk, escp, ... etc.)
+    # all = both material and dynamical
+    try:
+        divCat = kwargs["divCat"]
+        if divCat not in ["mat", "dyn", "all"]:
+            raise RuntimeError("'{}' not valid value for divCat".format(divCat))
+    except KeyError:
+        divCat = "custom"
+
+    # determine which value to use for Etot
+    # init = normalize to total initial energy
+    # gmin = normalize to the total energy when GU is minimized
+    # adpt = normalize to the total energy at each data dump
+    try:
+        EtotVal = kwargs
+        if EtotVal not in ["init", "gmin", "adpt"]:
+            raise RuntimeError("'{}' not valid value for EtotVal".format(EtotVal))
+    except KeyError:
+        EtotVal = "adpt"
+
+    # determine which energy values we'll be using;
+    # to accomplish this we will reference the following nested list:
+    compList =  [ [ ["erthEkenMat1", "erthEkenMat2"],
+                    ["diskEkenMat1", "diskEkenMat2"],
+                    ["escpEkenMat1", "escpEkenMat2"] ],
+                  [ ["erthEintMat1", "erthEintMat2"],
+                    ["diskEintMat1", "diskEintMat2"],
+                    ["escpEintMat1", "escpEintMat2"] ],
+                  [ ["erthEkenMat1", "erthEkenMat2"],
+                    ["diskEkenMat1", "diskEkenMat2"],
+                    ["escpEkenMat1", "escpEkenMat2"] ] ]
+
+    # the user may provide a tuple of Boolean values which describes which
+    # of the categories above will be included. For example, the following
+    # tuple:
+    #
+    # (True, (True, (True, True), False), True) 
+    #
+    # indicates that
+    # - the total kinetic energy will be plotted as one line
+    # - the internal energy of the earth will be plotted as one line
+    # - the internal energy of Mat 1 in the disk will be plotted as one line
+    # - the internal energy of Mat 2 in the disk will be plotted as one line
+    # - the internal energy of escaped material will not be plotted at all
+    # - the gravitational potential energy will be plotted as one line
+    try:
+        if divCat == "custom":
+            Ecomps = kwargs["Ecomps"]
+        else:
+            raise RuntimeError("'divCat' and 'Ecomps' cannot be assigned at the same time")
+    except KeyError:
+        Ecomps = ( ( (True, True), (True, True), (True, True) ),
+                   ( (True, True), (True, True), (True, True) ),
+                   ( True ) )
+
+    # gather the energy components that we'll be using
+    
+    if Ecomps:
+        print "One line for {}".format(compList)
+    for i, eType in enumerate(Ecomps):
+        if eType:
+            print "One line for {}".format(compList[i])
+            break
+        for j, dynType in eType:
+            if dynType:
+                print "One line for {}".format(compList[i][j])
+                break
+            for k, matType in dynType:
+                if matType:
+                    print "One line for {}".format(compList[i][j][k])
+                    break
+        
+    # find the number of data dumps
+    #dobrDat = dor.DataOutBinReader()
+    #cycs, numCycs = dobrDat.getCycles(dobrFname, dataDir)
+
+        
 def plotAngMomTotal_dyn(dataDir, saveDir, dobrFname="binDat"):
     # Integrate the Angular momentum from the
     # data-out-binary-reader file (dobrDat)
@@ -1042,10 +1326,9 @@ def plotAngMomTotal_dyn(dataDir, saveDir, dobrFname="binDat"):
 
     # make second y axis to display percentage
     ax_perc = ax_AM.twinx()
-    ax_perc.set_ylim([0, 1])
+    ax_perc.set_ylim(0, 1)
 
-    ax_AM.set_ylim([erthAM.min(),
-                       (erthAM + diskAM + escpAM).max()])
+    ax_AM.set_ylim(erthAM.min(), (erthAM + diskAM + escpAM).max())
     ax_AM.set_xlim([0, dobrTs[-1]])
 
     ax_AM.set_xlabel("Time (hr)")
@@ -1119,11 +1402,10 @@ def plotAngMomTotal_mat(dataDir, saveDir, dobrFname="binDat"):
     
     # make second y axis to display percentage
     ax_perc = ax_AM.twinx()
-    ax_perc.set_ylim([0, 1])
+    ax_perc.set_ylim(0, 1)
 
-    ax_AM.set_ylim([AMmat1.min(),
-                    (AMmat1 + AMmat2).max()])
-    ax_AM.set_xlim([0, dobrTs[-1]])
+    ax_AM.set_ylim(AMmat1.min(), (AMmat1 + AMmat2).max())
+    ax_AM.set_xlim(0, dobrTs[-1])
 
     ax_AM.set_xlabel("Time (hr)")
     ax_AM.set_ylabel("Angular Momentum (kg m^2/s)")
@@ -1143,3 +1425,138 @@ def plotAngMomTotal_mat(dataDir, saveDir, dobrFname="binDat"):
 
     return dobrTs, AMmat1, AMmat2
 
+
+def plotAngMom_dyn(dataDir, saveDir, dobrFname="binDat"):
+    # Integrate the energy from the data-out-binary-reader file (dobrDat)
+    dobrDat = dor.DataOutBinReader()
+    cycs, numCycs = dobrDat.getCycles(dobrFname, dataDir)
+    erthAM = np.zeros(numCycs)
+    diskAM = np.zeros(numCycs)
+    escpAM = np.zeros(numCycs)
+    print "Number of dumps to analyze: {}".format(len(cycs))
+    dobrTs = np.zeros(numCycs)
+    for i, cyc in enumerate(cycs):
+        dobrDat = dor.DataOutBinReader()
+        dobrDat.readSev(dobrFname, cyc, dataDir)
+        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        dobrTs[i] = dobrDat.times[0]/3600
+        M_P, R_P, erthInds, diskInds, escpInds = dobrDat.findPlanet(0)
+
+        erthAM[i] = 1e-7*(
+            np.power(
+                np.power(np.asarray( dobrDat.LX[0] )[erthInds], 2)
+                + np.power(np.asarray(dobrDat.LY[0])[erthInds], 2)
+                + np.power(np.asarray(dobrDat.LZ[0])[erthInds], 2), 0.5 )
+            * ( np.asarray(dobrDat.M1[0])[erthInds]
+                + np.asarray(dobrDat.M2[0])[erthInds] ) ).sum()
+        diskAM[i] = 1e-7*(
+            np.power(
+                np.power(np.asarray( dobrDat.LX[0] )[diskInds], 2)
+                + np.power(np.asarray(dobrDat.LY[0])[diskInds], 2)
+                + np.power(np.asarray(dobrDat.LZ[0])[diskInds], 2), 0.5 )
+            * ( np.asarray(dobrDat.M1[0])[diskInds]
+                + np.asarray(dobrDat.M2[0])[diskInds] ) ).sum()
+        escpAM[i] = 1e-7*(
+            np.power(
+                np.power(np.asarray( dobrDat.LX[0] )[escpInds], 2)
+                + np.power(np.asarray(dobrDat.LY[0])[escpInds], 2)
+                + np.power(np.asarray(dobrDat.LZ[0])[escpInds], 2), 0.5 )
+            * ( np.asarray(dobrDat.M1[0])[escpInds]
+                + np.asarray(dobrDat.M2[0])[escpInds] ) ).sum()
+
+    colors = parula_map(np.linspace(0, 1, 3))
+    '''
+    dobrTs = dobrTs[:2]
+    erthAM = erthAM[:2]
+    diskAM = diskAM[:2]
+    escpAM = escpAM[:2]
+    '''
+    AMtot = erthAM + diskAM + escpAM
+        
+    fig, ax_AM = plt.subplots()
+
+    # plot the fractional angular momentum
+    ax_AM.plot(dobrTs, erthAM/AMtot, c=colors[0])
+    ax_AM.plot(dobrTs, diskAM/AMtot, c=colors[1])
+    ax_AM.plot(dobrTs, escpAM/AMtot, c=colors[2])
+    
+    ax_AM.set_xlim(dobrTs[0], dobrTs[-1])
+
+    ax_AM.set_xlabel("Time (hr)")
+    ax_AM.set_ylabel("Fraction of total angular momentum")
+
+    # make proxy artists for legend entries
+    boxes = []
+    for c in colors:
+        boxes.append(mpatches.FancyBboxPatch((0, 0), 1, 1, fc=c))
+
+    fig.legend(boxes, ("Earth", "Disk", "Escaped"))
+
+    # make sure saveDir has '/' before saving
+    if saveDir[-1] != '/':
+        saveDir = saveDir+'/'
+    plt.savefig(saveDir+"angMom_dyn.png")
+
+    return dobrTs, erthAM, diskAM, escpAM
+
+
+
+def plotAngMom_mat(dataDir, saveDir, dobrFname="binDat"):
+    # Integrate the energy from the data-out-binary-reader file (dobrDat)
+    dobrDat = dor.DataOutBinReader()
+    cycs, numCycs = dobrDat.getCycles(dobrFname, dataDir)
+    AMmat1 = np.zeros(numCycs)
+    AMmat2 = np.zeros(numCycs)
+    print "Number of dumps to analyze: {}".format(len(cycs))
+    dobrTs = np.zeros(numCycs)
+    for i, cyc in enumerate(cycs):
+        dobrDat = dor.DataOutBinReader()
+        dobrDat.readSev(dobrFname, cyc, dataDir)
+        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        dobrTs[i] = dobrDat.times[0]/3600
+
+        AMmat1[i] = 1e-7*(
+            np.power(
+                np.power(np.asarray( dobrDat.LX[0] ), 2)
+                + np.power(np.asarray(dobrDat.LY[0]), 2)
+                + np.power(np.asarray(dobrDat.LZ[0]), 2), 0.5 )
+            * np.asarray(dobrDat.M1[0]) ).sum()
+        AMmat2[i] = 1e-7*(
+            np.power(
+                np.power(np.asarray( dobrDat.LX[0] ), 2)
+                + np.power(np.asarray(dobrDat.LY[0]), 2)
+                + np.power(np.asarray(dobrDat.LZ[0]), 2), 0.5 )
+            * np.asarray(dobrDat.M2[0]) ).sum()
+
+    colors = parula_map(np.linspace(0, 1, 2))
+    '''
+    dobrTs = dobrTs[:2]
+    AMmat1 = AMmat1[:2]
+    AMmat2 = AMmat2[:2]
+    '''
+    AMtot = AMmat1 + AMmat2
+    
+    fig, ax_AM = plt.subplots()
+
+    # plot the fractional angular momentum 
+    ax_AM.plot(dobrTs, AMmat1/AMtot, c=colors[0])
+    ax_AM.plot(dobrTs, AMmat2/AMtot, c=colors[1])    
+    
+    ax_AM.set_xlim([dobrTs[0], dobrTs[-1]])
+
+    ax_AM.set_xlabel("Time (hr)")
+    ax_AM.set_ylabel("Fraction of total angular momentum")
+
+    # make proxy artists for legend entries
+    boxes = []
+    for c in colors:
+        boxes.append(mpatches.FancyBboxPatch((0, 0), 1, 1, fc=c))
+
+    fig.legend(boxes, ("Mantle", "Core"))
+
+    # make sure saveDir has '/' before saving
+    if saveDir[-1] != '/':
+        saveDir = saveDir+'/'
+    plt.savefig(saveDir+"angMom_mat.png")
+
+    return dobrTs, AMmat1, AMmat2

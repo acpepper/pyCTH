@@ -462,6 +462,11 @@ class DataOutBinReader:
 
 
     def getCOM3d(self, ti=0):
+        reqAttrs = ['SGU', 'M1', 'M2']
+        for attr in reqAttrs:
+            if not hasattr(self, attr):
+                raise AttributeError("DataOutBinReader class has no attribute: {}".format(attr))
+
         comGuess = self.getCOM3d_mass()
         GU = self.getGU()
         GU_ord = np.argsort(GU)
@@ -469,6 +474,9 @@ class DataOutBinReader:
         # 16 is an qualitative, empirical choice
         numBestInds = 16
         for i in GU_ord:
+            if self.M1[ti][i] > 1/3*self.M2[ti][i]:
+                continue
+            
             distToCOM = np.linalg.norm([self.centers[ti][0][i] - comGuess[0],
                                         self.centers[ti][1][i] - comGuess[1], 
                                         self.centers[ti][2][i] - comGuess[2]])
@@ -552,6 +560,11 @@ class DataOutBinReader:
             lunarD = kwargs["lunarD"]
         except KeyError:
             lunarD = 2.5
+
+        reqAttrs = ['KE', 'M1', 'M2', 'VX', 'VY', 'VZ']
+        for attr in reqAttrs:
+            if not hasattr(self, attr):
+                raise AttributeError("DataOutBinReader class has no attribute: {}".format(attr))
             
         rads = self.getRads3d(ti, com=com)
         masses = np.asarray(self.M1[ti]) + np.asarray(self.M2[ti])
