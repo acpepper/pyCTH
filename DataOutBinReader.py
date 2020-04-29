@@ -25,9 +25,9 @@ class DataOutBinReader:
     binDat = bnr.DataOutBinReader()
     base_fname = 'myBinary' # e.g. file: myBinary000127.7.dat
     binDat.readAll(base_fname, "/group/stewartgrp/acpepper/some_CTH_run_dir/")
-    print binDat.varNames
-    print binDat.M1 # This module omits the '+' when specifying material vars
-    print binDat.M2
+    print(binDat.varNames)
+    print(binDat.M1) # This module omits the '+' when specifying material vars
+    print(binDat.M2)
 
     EXAMPLE USAGE 2:
     ----------------
@@ -36,8 +36,8 @@ class DataOutBinReader:
     binDat = DataOutBinReader()
     fname = 'myBinary000123.0.dat'
     binDat.readOne(fname) # Will only work with dumps by core 0
-    print binDat.varNames
-    print binDat.T
+    print(binDat.varNames)
+    print(binDat.T)
 
     LIST OF ATTRIBUTES:
     -------------------
@@ -223,7 +223,7 @@ class DataOutBinReader:
         while True:
             try:
                 cycle = self.getNextCycle(fnameBase, cycle, runDir)
-                print "go to readSev!"
+                print("go to readSev!")
                 self.readSev(fnameBase, cycle, runDir)
             except IOError:
                 break
@@ -249,7 +249,7 @@ class DataOutBinReader:
             try:
                 core = self.getNextCore(fnameBase, core, runDir)
                 fname = fnameBase+"{:0>6}".format(cycle)+".{}.dat".format(core)
-                print "fname = {}".format(fname)
+                print("fname = {}".format(fname))
                 if core == 0:
                     self.readOne(runDir+fname)
                 else:
@@ -273,7 +273,7 @@ class DataOutBinReader:
             data = dataIn.read(4)
             if self.numDims == 0:
                 self.numDims = struct.unpack('i', data[:4])[0]
-                print "numDims = {}".format(self.numDims)
+                print("numDims = {}".format(self.numDims))
 
             # The data at each dump is given its own row in the 'centers'
             # 'widths' and data arrays
@@ -289,7 +289,7 @@ class DataOutBinReader:
             data = dataIn.read(4)
             if self.numVars == 0:
                 self.numVars = struct.unpack('i', data[:4])[0]
-                print "numVars = {}".format(self.numVars)
+                print("numVars = {}".format(self.numVars))
 
             # Now read the simulation time at which the data was dumped
             # (8 is the number of bytes in an double)
@@ -612,7 +612,7 @@ class DataOutBinReader:
             omegas[j] = am/(rads[j]**2)
             aScaled[j] = pow(am, 2) / 6.674e-8 # [orbital radius]*M_P
 
-        print "initial M_P = {} kg".format(M_P/1e3)
+        print("initial M_P = {} kg".format(M_P/1e3))
         
         # Now we itteratively update the planet mass estimate by screening the
         # cells with the aScaled array:
@@ -637,7 +637,7 @@ class DataOutBinReader:
             elif newM_P > 1.2e28:
                 newM_P = 1.2e28
                 
-            print "updated M_P = {} kg".format(newM_P/1e3)
+            print("updated M_P = {} kg".format(newM_P/1e3))
 
             # If the the change in planet mass is proportionally small, 
             # exit the itteration
@@ -668,16 +668,16 @@ class DataOutBinReader:
         L_esc, L_D, L_tot = self.getFractionalLs(escpdInds, 
                                                  diskInds,
                                                  com=com)
-        print "R_P = {} km".format(R_P/1e5)
+        print("R_P = {} km".format(R_P/1e5))
         M_esc = masses[escpdInds].sum()
-        print "M_esc = {} kg".format(M_esc/1e3)
+        print("M_esc = {} kg".format(M_esc/1e3))
         M_D = masses[diskInds].sum()
-        print "M_D = {} kg".format(M_D/1e3)
+        print("M_D = {} kg".format(M_D/1e3))
         M_D_frac = ( ( np.asarray(self.M1[ti])[diskInds]
                        *np.asarray(self.M1ID[ti])[diskInds] )
                      +( np.asarray(self.M2[ti])[diskInds]
                         *np.asarray(self.M2ID[ti])[diskInds] ) ).sum()
-        print "fraction of M_D from target = {}%".format(M_D_frac/M_D*100)
+        print("fraction of M_D from target = {}%".format(M_D_frac/M_D*100))
         
         # We use an angular momentum-balance equation to calculate the
         # proportion of the disk material which accretes into a moon
@@ -687,7 +687,7 @@ class DataOutBinReader:
         for j in pInds:
             omega_P += masses[j]*omegas[j]
         omega_P /= M_P
-        print "omega_P = {} rev/hr".format(omega_P*3600/2/np.pi)
+        print("omega_P = {} rev/hr".format(omega_P*3600/2/np.pi))
 
         # Next, we calculate the integrated mass.
         # We'll need this for the next calcualtion
@@ -716,7 +716,7 @@ class DataOutBinReader:
         A = pow(2*6.674e-8*M_enc*roche1, 0.5)
         B = R_P**2*M_D*omega_P
         M_L = (L_D - B)/(A - R_P**2*omega_P)
-        print "M_L = {} kg".format(M_L/1e3)
+        print("M_L = {} kg".format(M_L/1e3))
 
         return M_P, R_P, pInds, diskInds, escpdInds
 
@@ -734,7 +734,7 @@ class DataOutBinReader:
             L_esc = np.linalg.norm([escpdL[:, 0].sum(), 
                                     escpdL[:, 1].sum(), 
                                     escpdL[:, 2].sum()])
-            print "L_esc = {} L_EM".format(L_esc/3.5e41)
+            print("L_esc = {} L_EM".format(L_esc/3.5e41))
         else:
             L_esc = 0
 
@@ -744,7 +744,7 @@ class DataOutBinReader:
             L_D = np.linalg.norm( [diskL[:, 0].sum(), 
                                    diskL[:, 1].sum(), 
                                    diskL[:, 2].sum()] )
-            print "L_D = {} L_EM".format(L_D/3.5e41)
+            print("L_D = {} L_EM".format(L_D/3.5e41))
         else:
             L_D = 0
 
@@ -754,7 +754,7 @@ class DataOutBinReader:
         L_tot = np.linalg.norm( [totalL[:, 0].sum(), 
                                  totalL[:, 1].sum(), 
                                  totalL[:, 2].sum()] )
-        print "L_tot = {} L_EM".format(L_tot/3.5e41)
+        print("L_tot = {} L_EM".format(L_tot/3.5e41))
         
         return L_esc, L_D, L_tot
 
