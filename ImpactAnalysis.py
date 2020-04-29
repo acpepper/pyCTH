@@ -14,8 +14,8 @@ import sys
 fmtr = ScalarFormatter()
 fmtr.set_powerlimits((2, 2))
 
-import DataOutBinReader as dor
-import HcthReader as hcr
+from . import DataOutBinReader as dor
+from . import HcthReader as hcr
 
 from matplotlib.colors import LinearSegmentedColormap
 
@@ -1233,7 +1233,6 @@ def plotEnergy(dataDir, saveDir, dobrFname="binDat", **kwargs):
                    ( True ) )
 
     # gather the energy components that we'll be using
-    
     if Ecomps:
         print("One line for {}".format(compList))
     for i, eType in enumerate(Ecomps):
