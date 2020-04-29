@@ -126,7 +126,7 @@ def findPlanet(dobrDat, ti=0):
     # Iteratively calculate the planet mass and radius by comparing the
     # relaxed radii of each cell to the planet's radius and excluding
     # the cells which fall into the planet and/or are energetically unbound
-    print "Begining planet mass and radius calculation"
+    print("Begining planet mass and radius calculation")
     diskInds = []
     escpInds = []
     M_P = mSum[R_P_ind + 1]
@@ -148,7 +148,7 @@ def findPlanet(dobrDat, ti=0):
             else:
                 nextM_P += masses[j]
 
-        print "Last M_P = {}, next M_P = {}".format(M_P, nextM_P)
+        print("Last M_P = {}, next M_P = {}".format(M_P, nextM_P))
         
         # If the the change in planet mass is proportionally small, 
         # exit the itteration
@@ -164,7 +164,7 @@ def findPlanet(dobrDat, ti=0):
                 R_P = rads[radInds][R_P_ind]
                 break
 
-    print "Done"
+    print("Done")
 
     # Calculate the predicted lunar mass via 
     # Eq 1 of Canup, Barr, and Crawford 2013
@@ -175,7 +175,7 @@ def findPlanet(dobrDat, ti=0):
     M_D = masses[diskInds].sum()
     a_R = 2.9*R_P
     M_L = (1.9*(L_D/M_D/pow(G*M_P*a_R, 0.5)) - 1.1 - 1.9*(M_esc/M_D))*M_D
-    print "M_L ~ {}".format(M_L)
+    print("M_L ~ {}".format(M_L))
 
     return M_P, R_P, diskInds, escpInds
 '''
@@ -640,12 +640,12 @@ def plotEnergyTotal_dyn(dataDir, saveDir, dobrFname="binDat"):
     erthEgra = np.zeros(numCycs)
     diskEgra = np.zeros(numCycs)
     escpEgra = np.zeros(numCycs)
-    print "Number of dumps to analyze: {}".format(len(cycs))
+    print("Number of dumps to analyze: {}".format(len(cycs)))
     dobrTs = np.zeros(numCycs)
     for i, cyc in enumerate(cycs):
         dobrDat = dor.DataOutBinReader()
         dobrDat.readSev(dobrFname, cyc, dataDir)
-        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        print("Time of this data dump: {}".format(dobrDat.times[0]/3600))
         dobrTs[i] = dobrDat.times[0]/3600
         M_P, R_P, erthInds, diskInds, escpInds = dobrDat.findPlanet(0)
 
@@ -833,12 +833,12 @@ def plotEnergyTotal_mat(dataDir, saveDir, dobrFname="binDat"):
     EintMat2 = np.zeros(numCycs)
     EgraMat1 = np.zeros(numCycs)
     EgraMat2 = np.zeros(numCycs)
-    print "Number of dumps to analyze: {}".format(len(cycs))
+    print("Number of dumps to analyze: {}".format(len(cycs)))
     dobrTs = np.zeros(numCycs)
     for i, cyc in enumerate(cycs):
         dobrDat = dor.DataOutBinReader()
         dobrDat.readSev(dobrFname, cyc, dataDir)
-        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        print("Time of this data dump: {}".format(dobrDat.times[0]/3600))
         dobrTs[i] = dobrDat.times[0]/3600
 
         EkenMat1[i] = 1e-7*( np.asarray(dobrDat.KE[0])
@@ -983,12 +983,12 @@ def plotEnergy_dyn(dataDir, saveDir, dobrFname="binDat"):
     erthEgra = np.zeros(numCycs)
     diskEgra = np.zeros(numCycs)
     escpEgra = np.zeros(numCycs)
-    print "Number of dumps to analyze: {}".format(len(cycs))
+    print("Number of dumps to analyze: {}".format(len(cycs)))
     dobrTs = np.zeros(numCycs)
     for i, cyc in enumerate(cycs):
         dobrDat = dor.DataOutBinReader()
         dobrDat.readSev(dobrFname, cyc, dataDir)
-        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        print("Time of this data dump: {}".format(dobrDat.times[0]/3600))
         dobrTs[i] = dobrDat.times[0]/3600
         M_P, R_P, erthInds, diskInds, escpInds = dobrDat.findPlanet(0)
 
@@ -1095,12 +1095,12 @@ def plotEnergy_mat(dataDir, saveDir, dobrFname="binDat"):
     EintMat2 = np.zeros(numCycs)
     EgraMat1 = np.zeros(numCycs)
     EgraMat2 = np.zeros(numCycs)
-    print "Number of dumps to analyze: {}".format(len(cycs))
+    print("Number of dumps to analyze: {}".format(len(cycs)))
     dobrTs = np.zeros(numCycs)
     for i, cyc in enumerate(cycs):
         dobrDat = dor.DataOutBinReader()
         dobrDat.readSev(dobrFname, cyc, dataDir)
-        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        print("Time of this data dump: {}".format(dobrDat.times[0]/3600))
         dobrTs[i] = dobrDat.times[0]/3600
 
         EkenMat1[i] = 1e-7*( np.asarray(dobrDat.KE[0])
@@ -1235,18 +1235,18 @@ def plotEnergy(dataDir, saveDir, dobrFname="binDat", **kwargs):
     # gather the energy components that we'll be using
     
     if Ecomps:
-        print "One line for {}".format(compList)
+        print("One line for {}".format(compList))
     for i, eType in enumerate(Ecomps):
         if eType:
-            print "One line for {}".format(compList[i])
+            print("One line for {}".format(compList[i]))
             break
         for j, dynType in eType:
             if dynType:
-                print "One line for {}".format(compList[i][j])
+                print("One line for {}".format(compList[i][j]))
                 break
             for k, matType in dynType:
                 if matType:
-                    print "One line for {}".format(compList[i][j][k])
+                    print("One line for {}".format(compList[i][j][k]))
                     break
         
     # find the number of data dumps
@@ -1262,12 +1262,12 @@ def plotAngMomTotal_dyn(dataDir, saveDir, dobrFname="binDat"):
     erthAM = np.zeros(numCycs)
     diskAM = np.zeros(numCycs)
     escpAM = np.zeros(numCycs)
-    print "Number of dumps to analyze: {}".format(len(cycs))
+    print("Number of dumps to analyze: {}".format(len(cycs)))
     dobrTs = np.zeros(numCycs)
     for i, cyc in enumerate(cycs):
         dobrDat = dor.DataOutBinReader()
         dobrDat.readSev(dobrFname, cyc, dataDir)
-        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        print("Time of this data dump: {}".format(dobrDat.times[0]/3600))
         dobrTs[i] = dobrDat.times[0]/3600
         M_P, R_P, erthInds, diskInds, escpInds = dobrDat.findPlanet(0)
 
@@ -1358,12 +1358,12 @@ def plotAngMomTotal_mat(dataDir, saveDir, dobrFname="binDat"):
     cycs, numCycs = dobrDat.getCycles(dobrFname, dataDir)
     AMmat1 = np.zeros(numCycs)
     AMmat2 = np.zeros(numCycs)
-    print "Number of dumps to analyze: {}".format(len(cycs))
+    print("Number of dumps to analyze: {}".format(len(cycs)))
     dobrTs = np.zeros(numCycs)
     for i, cyc in enumerate(cycs):
         dobrDat = dor.DataOutBinReader()
         dobrDat.readSev(dobrFname, cyc, dataDir)
-        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        print("Time of this data dump: {}".format(dobrDat.times[0]/3600))
         dobrTs[i] = dobrDat.times[0]/3600
 
         AMmat1[i] = 1e-7*(
@@ -1433,12 +1433,12 @@ def plotAngMom_dyn(dataDir, saveDir, dobrFname="binDat"):
     erthAM = np.zeros(numCycs)
     diskAM = np.zeros(numCycs)
     escpAM = np.zeros(numCycs)
-    print "Number of dumps to analyze: {}".format(len(cycs))
+    print("Number of dumps to analyze: {}".format(len(cycs)))
     dobrTs = np.zeros(numCycs)
     for i, cyc in enumerate(cycs):
         dobrDat = dor.DataOutBinReader()
         dobrDat.readSev(dobrFname, cyc, dataDir)
-        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        print("Time of this data dump: {}".format(dobrDat.times[0]/3600))
         dobrTs[i] = dobrDat.times[0]/3600
         M_P, R_P, erthInds, diskInds, escpInds = dobrDat.findPlanet(0)
 
@@ -1507,12 +1507,12 @@ def plotAngMom_mat(dataDir, saveDir, dobrFname="binDat"):
     cycs, numCycs = dobrDat.getCycles(dobrFname, dataDir)
     AMmat1 = np.zeros(numCycs)
     AMmat2 = np.zeros(numCycs)
-    print "Number of dumps to analyze: {}".format(len(cycs))
+    print("Number of dumps to analyze: {}".format(len(cycs)))
     dobrTs = np.zeros(numCycs)
     for i, cyc in enumerate(cycs):
         dobrDat = dor.DataOutBinReader()
         dobrDat.readSev(dobrFname, cyc, dataDir)
-        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        print("Time of this data dump: {}".format(dobrDat.times[0]/3600))
         dobrTs[i] = dobrDat.times[0]/3600
 
         AMmat1[i] = 1e-7*(

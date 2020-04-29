@@ -101,12 +101,12 @@ def plotEnergySpec_dyn(dataDir, saveDir, dobrFname="binDat", **kwargs):
     erthEgra = np.zeros(numCycs)
     diskEgra = np.zeros(numCycs)
     escpEgra = np.zeros(numCycs)
-    print "Number of dumps to analyze: {}".format(len(cycs))
+    print("Number of dumps to analyze: {}".format(len(cycs)))
     dobrTs = np.zeros(numCycs)
     for i, cyc in enumerate(cycs[-3:]):
         dobrDat = dor.DataOutBinReader()
         dobrDat.readSev(dobrFname, cyc, dataDir)
-        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        print("Time of this data dump: {}".format(dobrDat.times[0]/3600))
         dobrTs[i] = dobrDat.times[0]/3600
         # find the disk and escaped material
         M_P, R_P, erthInds, diskInds, escpInds = dobrDat.findPlanet(0)
@@ -232,12 +232,12 @@ def plotEnergySpec_mat(dataDir, saveDir, dobrFname="binDat", **kwargs):
     EintMat2 = np.zeros(numCycs)
     EgraMat1 = np.zeros(numCycs)
     EgraMat2 = np.zeros(numCycs)
-    print "Number of dumps to analyze: {}".format(len(cycs))
+    print("Number of dumps to analyze: {}".format(len(cycs)))
     dobrTs = np.zeros(numCycs)
     for i, cyc in enumerate(cycs[-3:]):
         dobrDat = dor.DataOutBinReader()
         dobrDat.readSev(dobrFname, cyc, dataDir)
-        print "Time of this data dump: {}".format(dobrDat.times[0]/3600)
+        print("Time of this data dump: {}".format(dobrDat.times[0]/3600))
         dobrTs[i] = dobrDat.times[0]/3600
 
         EkenMat1[i] = 1e-7*( np.asarray(dobrDat.KE[0])

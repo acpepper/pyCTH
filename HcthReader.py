@@ -24,8 +24,8 @@ class HcthReader:
 
     fname = "/group/stewartgrp/acpepper/some_CTH_run_dir/hcth")
     histDat = hcr.HcthReader(fname)
-    print histDat.varNames
-    print histDat.gcube[3]
+    print(histDat.varNames)
+    print(histDat.gcube[3])
 
     EXAMPLE USAGE 2:
     ----------------
@@ -33,7 +33,7 @@ class HcthReader:
 
     fname = "/group/stewartgrp/acpepper/some_CTH_run_dir/hcth")
     histDat = hcr.HcthReader(fname)
-    print histDat.getEtots()
+    print(histDat.getEtots())
 
     LIST OF ATTRIBUTES:
     -------------------
@@ -85,7 +85,7 @@ class HcthReader:
                 massi = i - self.numMatVars - self.numTrcVars + 2
 
         if massi == -1:
-            print "WARNING: MASS was not included in the history file"
+            print("WARNING: MASS was not included in the history file")
             
         return self.gcube[massi]
 
@@ -99,7 +99,7 @@ class HcthReader:
                 etoti = i - self.numMatVars - self.numTrcVars + 2
 
         if etoti == -1:
-            print "WARNING: ETOT was not included in the history file"
+            print("WARNING: ETOT was not included in the history file")
 
         return self.gcube[etoti]
 
@@ -113,7 +113,7 @@ class HcthReader:
                 ekeni = i - self.numMatVars - self.numTrcVars + 2
 
         if ekeni == -1:
-            print "WARNING: KE was not included in the history file"
+            print("WARNING: KE was not included in the history file")
 
         return self.gcube[ekeni]
 
@@ -127,7 +127,7 @@ class HcthReader:
                 einti = i - self.numMatVars - self.numTrcVars + 2
 
         if einti == -1:
-            print "WARNING: EINT was not included in the history file"
+            print("WARNING: EINT was not included in the history file")
 
         return self.gcube[einti]
 
@@ -172,15 +172,15 @@ def read_hcth(inputfile):
     d2=struct.unpack('f',f.read(4))[0]
     d3=struct.unpack('f',f.read(4))[0]
     
-    print 'icycle: ', icycle
-    print time,dt,cpu,icycle,d1,d2,d3, '\n'
+    print('icycle: {}'.format(icycle))
+    print(time,dt,cpu,icycle,d1,d2,d3, '\n')
     
     name_len=80
     title="" # Define title
 
     for i in range(name_len):
         title=title+struct.unpack('c',f.read(1))[0]
-    # print 'Title:\n', title, '\n'
+    # print('Title:\n', title, '\n')
 
     # Repeat the beginning stuff
     for i in range(4):
@@ -194,8 +194,8 @@ def read_hcth(inputfile):
     d2=struct.unpack('f',f.read(4))[0]
     d3=struct.unpack('f',f.read(4))[0]
 
-    print 'icycle: ', icycle
-    # print time,dt,cpu,icycle,d1,d2,d3, '\n'
+    print('icycle: ', icycle)
+    # print(time,dt,cpu,icycle,d1,d2,d3, '\n')
 
     # Datem time, jobid, cd
     b_len=46
@@ -203,7 +203,7 @@ def read_hcth(inputfile):
     for i in range(b_len):
         date=date+struct.unpack('c',f.read(1))[0]
     
-    # print 'Date:\n', date, '\n'
+    # print('Date:\n', date, '\n')
 
     for i in range(2):
         temp=struct.unpack('f',f.read(4))[0] # More spacer
@@ -216,8 +216,8 @@ def read_hcth(inputfile):
     d2=struct.unpack('f',f.read(4))[0]
     d3=struct.unpack('f',f.read(4))[0]
 
-    print 'icycle: ', icycle
-    # print time,dt,cpu,icycle,d1,d2,d3, '\n'
+    print('icycle: ', icycle)
+    # print(time,dt,cpu,icycle,d1,d2,d3, '\n')
 
     # Read integer values of tracer numbers, mats, tvars, mvars, and gvars
 
@@ -230,11 +230,11 @@ def read_hcth(inputfile):
     nummvars=struct.unpack('i',f.read(4))[0]
     numgvars=struct.unpack('i',f.read(4))[0]
 
-    print 'Number of tracers: ', numtracers
-    print 'Number of materials: ', nummats
-    print 'Number of tracer variables', numtvars
-    print 'Number of material variables', nummvars
-    print 'Number of global variables', numgvars
+    print('Number of tracers: {}'.format(numtracers))
+    print('Number of materials: {}'.format(nummats))
+    print('Number of tracer variables: {}'.format(numtvars))
+    print('Number of material variables: {}'.format(nummvars))
+    print('Number of global variables: {}'.format(numgvars))
 
     nt=1 #  initialize cube arrays
     tvars=np.zeros([numtvars,numtracers,nt])
@@ -260,8 +260,8 @@ def read_hcth(inputfile):
     for i in range(numgvars):
         gvars[i,0]=struct.unpack('f',f.read(4))[0]
 
-    print 'icycle: ', icycle
-    # print time,dt,cpu,icycle,gvars, '\n'
+    print('icycle: {}'.format(icycle))
+    # print(time,dt,cpu,icycle,gvars, '\n')
 
     # variable names
     varnames_len=(2*(16*numtvars+16*nummvars+16*numgvars))
@@ -273,11 +273,11 @@ def read_hcth(inputfile):
     for i in range(varnames_len):
         varnames=varnames+struct.unpack('c',f.read(1))[0]
     
-    # print 'Variable names:\n', varnames, '\n'
+    # print('Variable names:\n', varnames, '\n')
 
     for i in range(len(ipts)):
         ipts[i]=struct.unpack('i',f.read(4))[0]
-    # print 'ipts:\n', ipts, '\n'
+    # print('ipts:\n', ipts, '\n')
 
     # end Header information
     # Read in tracer
@@ -332,8 +332,8 @@ def read_hcth(inputfile):
     for i in range(b_len):   
         date=date+struct.unpack('c',f.read(1))[0]
 
-    # print 'Date:\n', date, '\n'
-    print 'numdumps: ', numdumps
+    # print('Date:\n', date, '\n')
+    print('numdumps: {}'.format(numdumps))
 
     varnames = varnames.split()
     last_i = -1
