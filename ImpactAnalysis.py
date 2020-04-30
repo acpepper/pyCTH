@@ -1191,7 +1191,7 @@ def plotEnergy(dataDir, saveDir, dobrFname="binDat", **kwargs):
     # gmin = normalize to the total energy when GU is minimized
     # adpt = normalize to the total energy at each data dump
     try:
-        EtotVal = kwargs
+        EtotVal = kwargs["EtotVal"]
         if EtotVal not in ["init", "gmin", "adpt"]:
             raise RuntimeError("'{}' not valid value for EtotVal".format(EtotVal))
     except KeyError:
@@ -1205,9 +1205,9 @@ def plotEnergy(dataDir, saveDir, dobrFname="binDat", **kwargs):
                   [ ["erthEintMat1", "erthEintMat2"],
                     ["diskEintMat1", "diskEintMat2"],
                     ["escpEintMat1", "escpEintMat2"] ],
-                  [ ["erthEkenMat1", "erthEkenMat2"],
-                    ["diskEkenMat1", "diskEkenMat2"],
-                    ["escpEkenMat1", "escpEkenMat2"] ] ]
+                  [ ["erthEgraMat1", "erthEgraMat2"],
+                    ["diskEgraMat1", "diskEgraMat2"],
+                    ["escpEgraMat1", "escpEgraMat2"] ] ]
 
     # the user may provide a tuple of Boolean values which describes which
     # of the categories above will be included. For example, the following
@@ -1230,29 +1230,69 @@ def plotEnergy(dataDir, saveDir, dobrFname="binDat", **kwargs):
     except KeyError:
         Ecomps = ( ( (True, True), (True, True), (True, True) ),
                    ( (True, True), (True, True), (True, True) ),
-                   ( True ) )
+                   True )
 
-    # gather the energy components that we'll be using
-    if Ecomps:
-        print("One line for {}".format(compList))
-    for i, eType in enumerate(Ecomps):
-        if eType:
-            print("One line for {}".format(compList[i]))
-            break
-        for j, dynType in eType:
-            if dynType:
-                print("One line for {}".format(compList[i][j]))
-                break
-            for k, matType in dynType:
-                if matType:
-                    print("One line for {}".format(compList[i][j][k]))
-                    break
+    eTypes = ["KE", "IE", "GU"]
+    dynTypes = ["Earth", "disk", "escaped"]
+    matTypes = ["Mat 1", "Mat 2"]
         
+    # cluster the energy components that we'll be plotting together
+    # (i.e. in a single line) and assign labels
+    EcompClust = []
+    clustLabels = []
+    if Ecomps == True:
+        EcompsClust.append([z for x in compList for y in x for z in y])
+        clustLabels.append("Total")
+    else:
+        for i, eType in enumerate(Ecomps):
+            if eType == True:
+                EcompClust.append([z for y in compList[i] for z in y])
+                clustLabels.append(eTypes[i])
+                continue
+            for j, dynType in enumerate(eType):
+                if dynType == True:
+                    EcompClust.append(compList[i][j])
+                    clustLabels.append(eTypes[i]+', '+dynTypes[j])
+                    continue
+                for k, matType in enumerate(dynType):
+                    if matType == True:
+                        EcompClust.append([compList[i][j][k]])
+                        clustLabels.append(eTypes[i]+', '+dynTypes[j]+', '+matTypes[k])
+
+    print(EcompClust)
+    print(clustLabels)
+                        
     # find the number of data dumps
-    #dobrDat = dor.DataOutBinReader()
-    #cycs, numCycs = dobrDat.getCycles(dobrFname, dataDir)
+    dobrDat = dor.DataOutBinReader()
+    cycs, numCycs = dobrDat.getCycles(dobrFname, dataDir)
 
-        
+    # initialize the energy component arrays
+    erthEkenMat1 = np.zeros(numCycs)
+    erthEkenMat2 = np.zeros(numCycs)
+    diskEkenMat1 = np.zeros(numCycs)
+    diskEkenMat2 = np.zeros(numCycs)
+    escpEkenMat1 = np.zeros(numCycs)
+    escpEkenMat2 = np.zeros(numCycs)
+    erthEintMat1 = np.zeros(numCycs)
+    erthEintMat2 = np.zeros(numCycs)
+    diskEintMat1 = np.zeros(numCycs)
+    diskEintMat2 = np.zeros(numCycs)
+    escpEintMat1 = np.zeros(numCycs)
+    escpEintMat2 = np.zeros(numCycs)
+    erthEgraMat1 = np.zeros(numCycs)
+    erthEgraMat2 = np.zeros(numCycs)
+    diskEgraMat1 = np.zeros(numCycs)
+    diskEgraMat2 = np.zeros(numCycs)
+    escpEgraMat1 = np.zeros(numCycs)
+    escpEgraMat2 = np.zeros(numCycs)
+    for i, cyc in enumerate(cycs):
+        dobrDat = dor.DataOutBinReader()
+        dobrDat.readSev(dobrFname, cyc, dataDir)
+        print("Time of this data dump: {}".format(dobrDat.times[0]/3600))
+
+        # calculate the energies which are clustered together
+
+
 def plotAngMomTotal_dyn(dataDir, saveDir, dobrFname="binDat"):
     # Integrate the Angular momentum from the
     # data-out-binary-reader file (dobrDat)
