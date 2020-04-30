@@ -14,8 +14,8 @@ import sys
 fmtr = ScalarFormatter()
 fmtr.set_powerlimits((2, 2))
 
-import DataOutBinReader as dor
-import HcthReader as hcr
+from . import DataOutBinReader as dor
+from . import HcthReader as hcr
 
 from matplotlib.colors import LinearSegmentedColormap
 
