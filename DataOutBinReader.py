@@ -308,11 +308,14 @@ class DataOutBinReader:
                 colName = ''
                 for i in range(colNameLen):
                     data = dataIn.read(1)
-                    char = struct.unpack('c', data[:1])[0]
+                    # we must cast the char as str because it is padded, e.g.
+                    # b'...' where ... is the character we are trying to
+                    # extract
+                    char = str(struct.unpack('c', data[:1])[0])[2:-1]
                     # The '+' symbol is used to distingush material variables
                     # However it will cause problems if we don't remove it
                     if char != "+":
-                        colName += str(char)
+                        colName += char
 
                 if not(colName in self.varNames):
                     self.varNames.append(colName)
