@@ -312,7 +312,7 @@ class DataOutBinReader:
                     # The '+' symbol is used to distingush material variables
                     # However it will cause problems if we don't remove it
                     if char != "+":
-                        colName += char
+                        colName += str(char)
 
                 if not(colName in self.varNames):
                     self.varNames.append(colName)
