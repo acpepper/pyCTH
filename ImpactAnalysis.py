@@ -985,7 +985,7 @@ def plotEnergy_dyn(dataDir, saveDir, dobrFname="binDat"):
     escpEgra = np.zeros(numCycs)
     print("Number of dumps to analyze: {}".format(len(cycs)))
     dobrTs = np.zeros(numCycs)
-    for i, cyc in enumerate(cycs):
+    for i, cyc in enumerate(cycs[-2:]):
         dobrDat = dor.DataOutBinReader()
         dobrDat.readSev(dobrFname, cyc, dataDir)
         print("Time of this data dump: {}".format(dobrDat.times[0]/3600))
@@ -1024,18 +1024,17 @@ def plotEnergy_dyn(dataDir, saveDir, dobrFname="binDat"):
         
     colors = parula_map(np.linspace(0, 1, 7))
 
-    '''
-    dobrTs = dobrTs[:4]
-    erthEken = erthEken[:4]
-    diskEken = diskEken[:4]
-    escpEken = escpEken[:4]
-    erthEint = erthEint[:4]
-    diskEint = diskEint[:4]
-    escpEint = escpEint[:4]
-    erthEgra = erthEgra[:4]
-    diskEgra = diskEgra[:4]
-    escpEgra = escpEgra[:4]
-    '''
+    dobrTs = dobrTs[:2]
+    erthEken = erthEken[:2]
+    diskEken = diskEken[:2]
+    escpEken = escpEken[:2]
+    erthEint = erthEint[:2]
+    diskEint = diskEint[:2]
+    escpEint = escpEint[:2]
+    erthEgra = erthEgra[:2]
+    diskEgra = diskEgra[:2]
+    escpEgra = escpEgra[:2]
+
     normedZeroEs = ( (erthEgra + diskEgra + escpEgra).max()
                      *np.ones(len(dobrTs)) )
     Etot = ( erthEken + diskEken + escpEken - normedZeroEs
@@ -1079,9 +1078,9 @@ def plotEnergy_dyn(dataDir, saveDir, dobrFname="binDat"):
     # make sure saveDir has '/' before saving
     if saveDir[-1] != '/':
         saveDir = saveDir+'/'
-    plt.savefig(saveDir+"energy_dyn.png")
+    plt.savefig(saveDir+"energyTest_dyn.png")
 
-    return dobrTs, (erthEgra, erthEken, erthEint), (diskEgra, diskEken, diskEint), (escpEgra, escpEken, escpEint)
+    return dobrTs, (erthEken, diskEken, escpEken), (erthEint, diskEint, escpEint), (erthEgra, diskEgra, escpEgra)
 
 
 
@@ -1097,7 +1096,7 @@ def plotEnergy_mat(dataDir, saveDir, dobrFname="binDat"):
     EgraMat2 = np.zeros(numCycs)
     print("Number of dumps to analyze: {}".format(len(cycs)))
     dobrTs = np.zeros(numCycs)
-    for i, cyc in enumerate(cycs):
+    for i, cyc in enumerate(cycs[-2:]):
         dobrDat = dor.DataOutBinReader()
         dobrDat.readSev(dobrFname, cyc, dataDir)
         print("Time of this data dump: {}".format(dobrDat.times[0]/3600))
@@ -1119,7 +1118,7 @@ def plotEnergy_mat(dataDir, saveDir, dobrFname="binDat"):
                              * np.asarray(dobrDat.M2[0]) ).sum()
         
     colors = parula_map(np.linspace(0, 1, 5))
-    '''
+
     dobrTs = dobrTs[:2]
     EkenMat1 = EkenMat1[:2]
     EkenMat2 = EkenMat2[:2]
@@ -1127,7 +1126,7 @@ def plotEnergy_mat(dataDir, saveDir, dobrFname="binDat"):
     EintMat2 = EintMat2[:2]
     EgraMat1 = EgraMat1[:2]
     EgraMat2 = EgraMat2[:2]
-    '''
+
     normedZeroEs = ( (EgraMat1 + EgraMat2).min()
                      *np.ones(len(dobrTs)) )
     Etot = ( ( EgraMat1 + EgraMat2  - normedZeroEs )
@@ -1168,13 +1167,29 @@ def plotEnergy_mat(dataDir, saveDir, dobrFname="binDat"):
     # make sure saveDir has '/' before saving
     if saveDir[-1] != '/':
         saveDir = saveDir+'/'
-    plt.savefig(saveDir+"energy_mat.png")
+    plt.savefig(saveDir+"energyTest_mat.png")
 
-    return dobrTs, (EgraMat1, EgraMat2), (EkenMat1, EkenMat2), (EintMat1, EintMat2)
+    return dobrTs, (EkenMat1, EkenMat2), (EintMat1, EintMat2), (EgraMat1, EgraMat2)
 
 
 
-def plotEnergy(dataDir, saveDir, dobrFname="binDat", **kwargs):
+def plotEnergy(dataDir, saveDir, **kwargs):
+    # get IO file names
+    try:
+        dobrFname = kwargs["dobrFname"]
+    except KeyError:    
+        dobrFname = "binDat"
+    try:
+        saveFname = kwargs["saveFname"]
+    except KeyError:
+        saveFname = "energy.png"
+
+    # will will plot the total energy in addition to the components?
+    try:
+        plotEtot = kwargs["plotEtot"]
+    except KeyError:
+        plotEtot = False
+        
     # determine which categories we're dividing the energy into
     # mat = material
     # dyn = dynamical (e.g. disk, escp, ... etc.)
@@ -1213,51 +1228,107 @@ def plotEnergy(dataDir, saveDir, dobrFname="binDat", **kwargs):
     # of the categories above will be included. For example, the following
     # tuple:
     #
-    # (True, (True, (True, True), False), True) 
+    # (mats, (one, (one, one), none), one) 
     #
     # indicates that
-    # - the total kinetic energy will be plotted as one line
-    # - the internal energy of the earth will be plotted as one line
-    # - the internal energy of Mat 1 in the disk will be plotted as one line
-    # - the internal energy of Mat 2 in the disk will be plotted as one line
-    # - the internal energy of escaped material will not be plotted at all
-    # - the gravitational potential energy will be plotted as one line
+    # - the total kinetic energy will be plotted as TWO lines, one for each
+    #   material
+    # - the internal energy of the earth will be plotted as ONE line
+    # - the internal energy of Mat 1 in the disk will be plotted as ONE line
+    # - the internal energy of Mat 2 in the disk will be plotted as ONE line
+    # - the internal energy of escaped material will NOT be plotted at all
+    # - the gravitational potential energy will be plotted as ONE line
     try:
         if divCat == "custom":
             Ecomps = kwargs["Ecomps"]
         else:
             raise RuntimeError("'divCat' and 'Ecomps' cannot be assigned at the same time")
     except KeyError:
-        Ecomps = ( ( (True, True), (True, True), (True, True) ),
-                   ( (True, True), (True, True), (True, True) ),
-                   True )
+        Ecomps = ( ( "mats", "mats", "mats" ),
+                   ( "mats", "mats", "mats" ),
+                   "one" )
 
-    eTypes = ["KE", "IE", "GU"]
-    dynTypes = ["Earth", "disk", "escaped"]
-    matTypes = ["Mat 1", "Mat 2"]
+    eTypeNames = ["KE", "IE", "GU"]
+    dynTypeNames = ["Earth", "disk", "escaped"]
+    matTypeNames = ["core", "mantle"]
         
     # cluster the energy components that we'll be plotting together
     # (i.e. in a single line) and assign labels
     EcompClust = []
     clustLabels = []
-    if Ecomps == True:
+    if Ecomps == "one":
         EcompsClust.append([z for x in compList for y in x for z in y])
         clustLabels.append("Total")
+    elif Ecomps == "mats":
+        EcompsClust.append([y[0] for x in compList for y in x])
+        clustLabels.append("Total, "+matType[0])
+        EcompsClust.append([y[1] for x in compList for y in x])
+        clustLabels.append("Total, "+matType[1])
+    elif Ecomps == "bound":
+        EcompsClust.append([z for x in compList for y in x[:2] for z in y])
+        clustLabels.append("Bound")
     else:
         for i, eType in enumerate(Ecomps):
-            if eType == True:
+            if eType == "one":
                 EcompClust.append([z for y in compList[i] for z in y])
-                clustLabels.append(eTypes[i])
+                clustLabels.append(eTypeNames[i])
+                continue
+            elif eType == "mats":
+                EcompClust.append([y[0] for y in compList[i]])
+                clustLabels.append(eTypeNames[i]+', '+matTypeNames[0])
+                EcompClust.append([y[1] for y in compList[i]])
+                clustLabels.append(eTypeNames[i]+', '+matTypeNames[1])
+                continue
+            elif eType == "mat1":
+                EcompClust.append([y[0] for y in compList[i]])
+                clustLabels.append(eTypeNames[i]+', '+matTypeNames[0])
+                continue
+            elif eType == "mat2":
+                EcompClust.append([y[1] for y in compList[i]])
+                clustLabels.append(eTypeNames[i]+', '+matTypeNames[1])
+                continue
+            elif eType == "bound":
+                EcompClust.append([z for y in compList[i][:2] for z in y])
+                clustLabels.append(eTypeNames[i]+', bound')
+            elif eType == "none":
                 continue
             for j, dynType in enumerate(eType):
-                if dynType == True:
+                if dynType == "one":
                     EcompClust.append(compList[i][j])
-                    clustLabels.append(eTypes[i]+', '+dynTypes[j])
+                    clustLabels.append(eTypeNames[i]+', '+dynTypeNames[j])
+                    continue
+                elif dynType == "mats":
+                    EcompClust.append([compList[i][j][0]])
+                    clustLabels.append(eTypeNames[i]+', '
+                                       +dynTypeNames[j]+', '
+                                       +matTypeNames[0])
+                    EcompClust.append([compList[i][j][1]])
+                    clustLabels.append(eTypeNames[i]+', '
+                                       +dynTypeNames[j]+', '
+                                       +matTypeNames[1])
+                    continue
+                elif dynType == "mat1":
+                    EcompClust.append([y[0] for y in compList[i]])
+                    clustLabels.append(eTypeNames[i]+', '
+                                       +dynTypeNames[j]+', '
+                                       +matTypeNames[0])
+                    continue
+                elif dynType == "mat2":
+                    EcompClust.append([y[1] for y in compList[i]])
+                    clustLabels.append(eTypeNames[i]+', '
+                                       +dynTypeNames[j]+', '
+                                       +matTypeNames[1])
+                    continue
+                elif dynType == "none":
                     continue
                 for k, matType in enumerate(dynType):
-                    if matType == True:
+                    if matType == "one":
                         EcompClust.append([compList[i][j][k]])
-                        clustLabels.append(eTypes[i]+', '+dynTypes[j]+', '+matTypes[k])
+                        clustLabels.append(eTypeNames[i]+', '
+                                           +dynTypeNames[j]+', '
+                                           +matTypeNames[k])
+                    elif matType == "none":
+                        continue
 
     print(EcompClust)
     print(clustLabels)
@@ -1265,33 +1336,147 @@ def plotEnergy(dataDir, saveDir, dobrFname="binDat", **kwargs):
     # find the number of data dumps
     dobrDat = dor.DataOutBinReader()
     cycs, numCycs = dobrDat.getCycles(dobrFname, dataDir)
-
-    # initialize the energy component arrays
-    erthEkenMat1 = np.zeros(numCycs)
-    erthEkenMat2 = np.zeros(numCycs)
-    diskEkenMat1 = np.zeros(numCycs)
-    diskEkenMat2 = np.zeros(numCycs)
-    escpEkenMat1 = np.zeros(numCycs)
-    escpEkenMat2 = np.zeros(numCycs)
-    erthEintMat1 = np.zeros(numCycs)
-    erthEintMat2 = np.zeros(numCycs)
-    diskEintMat1 = np.zeros(numCycs)
-    diskEintMat2 = np.zeros(numCycs)
-    escpEintMat1 = np.zeros(numCycs)
-    escpEintMat2 = np.zeros(numCycs)
-    erthEgraMat1 = np.zeros(numCycs)
-    erthEgraMat2 = np.zeros(numCycs)
-    diskEgraMat1 = np.zeros(numCycs)
-    diskEgraMat2 = np.zeros(numCycs)
-    escpEgraMat1 = np.zeros(numCycs)
-    escpEgraMat2 = np.zeros(numCycs)
-    for i, cyc in enumerate(cycs):
+    
+    # initialize the energy array, time array, and total gravitational
+    # potential array (this will be needed to normalize the energy)
+    Es = np.zeros((len(EcompClust), numCycs))
+    dobrTs = np.zeros(numCycs)
+    totalGU = np.zeros(numCycs)
+    for j, cyc in enumerate(cycs):
         dobrDat = dor.DataOutBinReader()
         dobrDat.readSev(dobrFname, cyc, dataDir)
-        print("Time of this data dump: {}".format(dobrDat.times[0]/3600))
 
-        # calculate the energies which are clustered together
+        # store the time of this data dump
+        dobrTs[j] = dobrDat.times[0]/3600
+        print("Time of this data dump: {}".format(dobrTs[j]))
+        
+        # Find the dynamical energy components
+        M_P, R_P, erthInds, diskInds, escpInds = dobrDat.findPlanet(0)
+        
+        # calculate the energies which are clustered together and sum
+        for i, eClust in enumerate(EcompClust):
+            for eName in eClust:
+                # Kinetic energies:
+                EkenMat1 = 1e-7*(np.asarray(dobrDat.KE[0])
+                                 *np.asarray(dobrDat.M1[0]))
+                EkenMat2 = 1e-7*(np.asarray(dobrDat.KE[0])
+                                 *np.asarray(dobrDat.M2[0]))
+                # Earth component
+                if eName == "erthEkenMat1":
+                    Es[i, j] += EkenMat1[erthInds].sum()
+                elif eName == "erthEkenMat2":
+                    Es[i, j] += EkenMat2[erthInds].sum()
+                # Disk component
+                elif eName == "diskEkenMat1":
+                    Es[i, j] += EkenMat1[diskInds].sum()
+                elif eName == "diskEkenMat2":
+                    Es[i, j] += EkenMat2[diskInds].sum()
+                # Escaped component
+                elif eName == "escpEkenMat1":
+                    Es[i, j] += EkenMat1[escpInds].sum()
+                elif eName == "escpEkenMat2":
+                    Es[i, j] += EkenMat2[escpInds].sum()
 
+                # Internal energies:
+                EintMat1 = 1e-7*(np.asarray(dobrDat.IE[0])
+                                 *np.asarray(dobrDat.M1[0]))
+                EintMat2 = 1e-7*(np.asarray(dobrDat.IE[0])
+                                 *np.asarray(dobrDat.M2[0]))
+                # Earth component
+                if eName == "erthEintMat1":
+                    Es[i, j] += EintMat1[erthInds].sum()
+                elif eName == "erthEintMat2":
+                    Es[i, j] += EintMat2[erthInds].sum()
+                # Disk component
+                elif eName == "diskEintMat1":
+                    Es[i, j] += EintMat1[diskInds].sum()
+                elif eName == "diskEintMat2":
+                    Es[i, j] += EintMat2[diskInds].sum()
+                # Escaped component
+                elif eName == "escpEintMat1":
+                    Es[i, j] += EintMat1[escpInds].sum()
+                elif eName == "escpEintMat2":
+                    Es[i, j] += EintMat2[escpInds].sum()
+
+                # Gravitational Potential energies:
+                EgraMat1 = 1e-7*(np.asarray(dobrDat.SGU[0])
+                                 *np.asarray(dobrDat.M1[0]))
+                EgraMat2 = 1e-7*(np.asarray(dobrDat.SGU[0])
+                                 *np.asarray(dobrDat.M2[0]))
+                # Earth component
+                if eName == "erthEgraMat1":
+                    Es[i, j] += EgraMat1[erthInds].sum()
+                elif eName == "erthEgraMat2":
+                    Es[i, j] += EgraMat2[erthInds].sum()
+                # Disk component
+                elif eName == "diskEgraMat1":
+                    Es[i, j] += EgraMat1[diskInds].sum()
+                elif eName == "diskEgraMat2":
+                    Es[i, j] += EgraMat2[diskInds].sum()
+                # Escaped component
+                elif eName == "escpEgraMat1":
+                    Es[i, j] += EgraMat1[escpInds].sum()
+                elif eName == "escpEgraMat2":
+                    Es[i, j] += EgraMat2[escpInds].sum()
+
+                # get total gravitational potential 
+                totalGU[j] = (EgraMat1 + EgraMat2).sum()
+
+    # calculate the minimum gravitational potential energy
+    # NOTE: because GU is conventionally given a negative sign, the minimum
+    #       energy is actually achieved at the numerical maximum
+    minGUind = totalGU.argmax()
+    minGU = totalGU[minGUind]
+    
+    # calculate the total energy
+    Etot = np.zeros(numCycs)
+    for E in Es:
+        Etot += E
+
+    # get our total energy normalization const
+    if EtotVal == "init":
+        EtotNorm = Etot[0]
+    elif EtotVal == "gmin":
+        EtotNorm = Etot[minGUind]
+    elif EtotVal == "adpt":
+        EtotNorm = Etot
+    else:
+        raise IOError("EtotVal, {}, is not a valid flag".format(EtotVal))
+        
+    # plot the energy component clusters
+    fig, ax = plt.subplots()
+    colors = parula_map(np.linspace(0, 0.95, len(Es) + (1 if plotEtot else 0)))
+    for i, E in enumerate(Es):
+        # We must check if the energy is gravitational potential energy
+        # because it is handled differently
+        if clustLabels[i][:2] == "GU":
+            ax.plot(dobrTs,
+                    (E - minGU)/(EtotNorm - minGU),
+                    c=colors[i],
+                    label=clustLabels[i])
+        else:
+            ax.plot(dobrTs,
+                    E/(EtotNorm - minGU),
+                    c=colors[i],
+                    label=clustLabels[i])
+
+    # plot the normalized total energy (trivial if EtotVal == "adpt")
+    if plotEtot:
+        ax.plot(dobrTs,
+                (Etot - minGU)/(EtotNorm - minGU),
+                c=colors[-1],
+                label="Total")
+    
+    fig.legend()
+            
+    # make sure saveDir has '/' before saving
+    if saveDir[-1] != '/':
+        saveDir = saveDir+'/'
+    plt.savefig(saveDir+saveFname)
+
+    return dobrTs, Es
+
+                    
 
 def plotAngMomTotal_dyn(dataDir, saveDir, dobrFname="binDat"):
     # Integrate the Angular momentum from the
