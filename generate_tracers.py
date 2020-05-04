@@ -192,6 +192,7 @@ def load_tracers(fname='tracers.npz'):
     Load tracer info for post processing
     Gives initial tracer positions, representative volumes, and 
       position in target/projectile core/mantle
+    Note that units are in km for x,y,z,V
     '''
     data = np.load(fname)
     xt = data['x']
@@ -218,7 +219,7 @@ if __name__ == "__main__":
     # create tracers
     x,y,z,V,label = build_planet_tracers(Rtc,Rt,Rpc,Rp,res_tc,res_tm,res_pc,res_pm,zoff=Rt+Rp)
 
-    # write tracers to file
+    # write tracers to file to append to CTH input file
     f = open('tracers.out','w')
     f.write('tracer\n')
     # write tracers line by line, converting km -> cm
@@ -228,8 +229,6 @@ if __name__ == "__main__":
     f.write('**\n')
     f.write('*---------------------------------------------------------\n')
     f.write('endinput')
-
-    f.close()
 
 
     np.savez('tracers.npz',x=x,y=y,z=z,V=V,label=label)
