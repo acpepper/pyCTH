@@ -205,7 +205,7 @@ if __name__ == "__main__":
 
     # define target/projectile dimensions/resolution
     Rtc = 3400.
-    Rt = 6730.
+    Rt = 6370.
     Rpc = 535. # projectile core radius in km
     Rp = 1000.
 
