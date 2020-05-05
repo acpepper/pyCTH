@@ -4,6 +4,9 @@ Created April 13th, 2018
 
 Modified July 12, 2018
 by Andrew Pepper
+
+Updated to python3 May 04, 2020
+by Robert Citron
 '''
 import numpy as np
 import struct
@@ -133,6 +136,24 @@ class HcthReader:
 
 
 
+    def getTrc(self,varname):
+        '''
+        get Tracer data with specified varname
+        P = histDat.getTrc('PRESSURE') returns Pressure array from tcube
+        '''
+        j = -1
+        for i, name in enumerate(self.varNames):
+            if name == varname:
+                # tcube variable, so no adjustment necessary
+                j  = i
+
+        if j == -1:
+            print("WARNING: %s was not included in the history file" % (varname))
+
+        return self.tcube[j]
+
+
+
 # This routine opens an hcth binary file for the purpose of locating the 
 # leading shock front in 1-D shock simulation. It does this by looking through
 # the x-position, pressure and particle velocity of all the tracer particles.
@@ -179,7 +200,7 @@ def read_hcth(inputfile):
     title="" # Define title
 
     for i in range(name_len):
-        title=title+struct.unpack('c',f.read(1))[0]
+        title=title+str(struct.unpack('c',f.read(1))[0],'utf-8')
     # print('Title:\n', title, '\n')
 
     # Repeat the beginning stuff
@@ -201,7 +222,7 @@ def read_hcth(inputfile):
     b_len=46
     date=""
     for i in range(b_len):
-        date=date+struct.unpack('c',f.read(1))[0]
+        date=date+str(struct.unpack('c',f.read(1))[0],'utf-8')
     
     # print('Date:\n', date, '\n')
 
@@ -271,7 +292,7 @@ def read_hcth(inputfile):
     for i in range(2):
         temp=struct.unpack('f',f.read(4))[0] # More space
     for i in range(varnames_len):
-        varnames=varnames+struct.unpack('c',f.read(1))[0]
+        varnames=varnames+str(struct.unpack('c',f.read(1))[0],'utf-8')
     
     # print('Variable names:\n', varnames, '\n')
 
@@ -297,8 +318,16 @@ def read_hcth(inputfile):
 
 
     while icycle != -101:
-        for i in range(2):
+        #RIC - try statement incase reach end of hcth
+        # for case when hcth produced before end of simulation
+        try:
             temp=struct.unpack('f',f.read(4))[0] # More spacer
+        except:
+            break
+        try:
+            temp=struct.unpack('f',f.read(4))[0] # More spacer
+        except:
+            break
         
         time=struct.unpack('f',f.read(4))[0]
         dt=struct.unpack('f',f.read(4))[0]
@@ -329,8 +358,9 @@ def read_hcth(inputfile):
         # icycle=-101
     
     date=""
-    for i in range(b_len):   
-        date=date+struct.unpack('c',f.read(1))[0]
+    if icycle==-101:
+        for i in range(b_len):   
+            date=date+str(struct.unpack('c',f.read(1))[0],'utf-8')
 
     # print('Date:\n', date, '\n')
     print('numdumps: {}'.format(numdumps))
