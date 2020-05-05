@@ -1425,7 +1425,7 @@ def plotEnergy(dataDir, saveDir, **kwargs):
     # calculate the minimum gravitational potential energy
     # NOTE: because GU is conventionally given a negative sign, the minimum
     #       energy is actually achieved at the numerical maximum
-    minGUind = totalGU.argmax()
+    minGUind = totalGU.argmin()
     minGU = totalGU[minGUind]
     
     # calculate the total energy
@@ -1445,28 +1445,39 @@ def plotEnergy(dataDir, saveDir, **kwargs):
         
     # plot the energy component clusters
     fig, ax = plt.subplots()
-    colors = parula_map(np.linspace(0, 0.95, len(Es) + (1 if plotEtot else 0)))
+    colors = parula_map(np.linspace(0, 0.95, len(Es)))
     for i, E in enumerate(Es):
+        # alternate dotted and solid line styles to differentiate lines of
+        # similar color
+        if i%2 == 0:
+            style = '-'
+        else:
+            style = '--'
+            
         # We must check if the energy is gravitational potential energy
         # because it is handled differently
         if clustLabels[i][:2] == "GU":
             ax.plot(dobrTs,
                     (E - minGU)/(EtotNorm - minGU),
                     c=colors[i],
+                    ls=style,
                     label=clustLabels[i])
         else:
             ax.plot(dobrTs,
                     E/(EtotNorm - minGU),
                     c=colors[i],
+                    ls=style,
                     label=clustLabels[i])
 
     # plot the normalized total energy (trivial if EtotVal == "adpt")
     if plotEtot:
         ax.plot(dobrTs,
                 (Etot - minGU)/(EtotNorm - minGU),
-                c=colors[-1],
+                c='k',
                 label="Total")
-    
+
+    ax.set_ylabel("Fractional Energy")
+    ax.set_xlabel("Time (hr)")
     fig.legend()
             
     # make sure saveDir has '/' before saving
