@@ -16,7 +16,7 @@ class DataOutBinReader:
     the output of CTH's 'DataOut()' when 
     'DataOutFormat(98)' is used. The data is 
     spread across multiple binary files in a 
-    CSV-like format.
+    CSV-like format. The units are CGS.
 
     EXAMPLE USAGE 1:
     ----------------
@@ -39,10 +39,26 @@ class DataOutBinReader:
     print(binDat.varNames)
     print(binDat.T)
 
+    EXAMPLE USAGE 3:
+    ----------------
+    import numpy as np
+    import DataOutBinReader as dobr
+
+    binDat = dobr.DataOutBinReader()
+    cycles, numCycles = binDat.getCycles("binDat", "/path-to-run/")
+
+    M1_disk = 0
+    for cycle in cycles:
+        tempBinDat = dobr.DataOutBinReader()
+        tempBinDat.readSev("binDat", cycle, "/path-to-run/")
+
+        M_P, R_P, erthInds, diskInds, escpInds = tempBinDat.findPlanet()
+        M1_disk += np.asarray(tempBinDat.M1[0])[diskInds].sum()
+
     LIST OF ATTRIBUTES:
     -------------------
     numDims      : How many dimensions are needed to describe the data points
-    numVars      : The number of database variable  sampled at each timestep
+    numVars      : The number of database variables sampled at each timestep
     varNames     : An array of the names of the database variables.
                    NOTE: the variables are named to match CTH, with the only
                          difference being the omission of '+' symbols
@@ -429,6 +445,10 @@ class DataOutBinReader:
 
 
     def getGU(self):
+        '''
+        Returns the gravitaional potential energy of everg cell
+        NOTE: this assumes that the simulation has used only 2 materials
+        '''
         reqAttrs = ['SGU', 'M1', 'M2']
         for attr in reqAttrs:
             if not hasattr(self, attr):
@@ -473,7 +493,7 @@ class DataOutBinReader:
         comGuess = self.getCOM3d_mass()
         GU = self.getGU()
         GU_ord = np.argsort(GU)
-        bestInd = []
+        bestInds = []
         # 16 is an qualitative, empirical choice
         numBestInds = 16
         for i in GU_ord:
@@ -484,17 +504,20 @@ class DataOutBinReader:
                                         self.centers[ti][1][i] - comGuess[1], 
                                         self.centers[ti][2][i] - comGuess[2]])
             if  distToCOM < 7e8: # ~R_earth
-                bestInd.append(i)
-                if len(bestInd) >= numBestInds:
+                bestInds.append(i)
+                if len(bestInds) >= numBestInds:
                     break
 
-        com = [0, 0, 0]
-        for i in bestInd:
-            com[0] += self.centers[ti][0][i]/numBestInds
-            com[1] += self.centers[ti][1][i]/numBestInds
-            com[2] += self.centers[ti][2][i]/numBestInds
-
-        return com, bestInd
+        com = np.zeros(3)
+        comMtot = 0
+        for i in bestInds:
+            comMtot += self.M2[ti][i]
+            com[0] += self.centers[ti][0][i]*self.M2[ti][i]
+            com[1] += self.centers[ti][1][i]*self.M2[ti][i]
+            com[2] += self.centers[ti][2][i]*self.M2[ti][i]
+        com /= comMtot
+            
+        return com, bestInds
 
 
 
